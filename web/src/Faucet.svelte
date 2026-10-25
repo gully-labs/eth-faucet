@@ -333,7 +333,7 @@
     <div class="wrap hero-grid">
       <div class="copy">
         <p class="kicker">GullyChain · chain id <span class="num">{CHAIN.id}</span></p>
-        <h1>Testnet ETH, <span class="hl">{faucetInfo.payout} {faucetInfo.symbol}</span> a day</h1>
+        <h1>Testnet ETH, <span class="hl">{faucetInfo.payout}&nbsp;{faucetInfo.symbol}</span> a day</h1>
         <p class="lead">
           One claim per address and per IP every 24 hours. Testnet ETH has no value; use it to try the
           <a href={LINKS[0].href} rel="noopener">GullyChain app</a>, deploy contracts and test the bridge.
@@ -600,8 +600,8 @@
     height: auto;
     max-width: none;
     /* soften the pose's own dark backdrop into the page black (the mascot itself is untouched) */
-    -webkit-mask-image: radial-gradient(ellipse 60% 62% at 55% 50%, #000 45%, transparent 100%);
-    mask-image: radial-gradient(ellipse 60% 62% at 55% 50%, #000 45%, transparent 100%);
+    -webkit-mask-image: radial-gradient(ellipse 56% 58% at 54% 48%, #000 28%, transparent 74%);
+    mask-image: radial-gradient(ellipse 56% 58% at 54% 48%, #000 28%, transparent 74%);
   }
   .mascot .fade {
     position: absolute;
@@ -611,7 +611,7 @@
   .hero-grid {
     position: relative;
     display: grid;
-    grid-template-columns: minmax(0, 620px) 1fr;
+    grid-template-columns: minmax(0, 620px) minmax(0, 1fr);
   }
   .kicker {
     margin: 0 0 12px;
@@ -760,6 +760,9 @@
     font-size: 13.5px;
     cursor: copy;
     border-bottom: 1px dashed var(--gc-line);
+    overflow-wrap: anywhere;
+    word-break: break-all;
+    text-align: left;
   }
   .addr:hover {
     border-bottom-color: var(--gc-cyan);
@@ -902,7 +905,7 @@
 
   @media (max-width: 900px) {
     .hero-grid {
-      grid-template-columns: 1fr;
+      grid-template-columns: minmax(0, 1fr);
     }
     .mascot {
       width: 80vw;
@@ -926,6 +929,7 @@
     }
     .btn {
       width: 100%;
+      white-space: normal;
     }
     .badge {
       display: none;
