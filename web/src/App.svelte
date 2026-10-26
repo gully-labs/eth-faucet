@@ -5,28 +5,24 @@
 <Faucet />
 
 <style>
-  /* GullyChain brand kit v2 tokens (brand-kit-v2/CLAUDE_PROMPT.md). Values are exact; do not invent new ones. */
+  /* GullyChain brand kit v3 tokens (brand-kit/tokens.json + CLAUDE_PROMPT.md). Values are exact; do not invent new ones.
+     --st-warn / --st-down are the two state colours the kit does not define (warning, down). */
   :global(:root) {
-    --gc-black: #000000;
-    --gc-night: #0a0f1a;
-    --gc-line: #16213a;
-    --gc-royal: #1567f9;
-    --gc-electric: #0f89f7;
-    --gc-cyan: #01d9fa;
-    --gc-indigo: #2e36f7;
-    --gc-text: #ffffff;
-    --gc-muted: #9fb3cc;
-    --gc-up: #2e7d32;
-    --gc-down: #c0392b;
-    --gc-chain-gradient: linear-gradient(90deg, #1567f9 0%, #0f89f7 35%, #01d9fa 100%);
-    --gc-icon-gradient: linear-gradient(180deg, #01d9f9 0%, #2e36f7 100%);
+    --gc-night: #05080d;
+    --gc-ink: #0a1018;
+    --gc-blue: #2563ff;
+    --gc-cyan: #00b2fa;
+    --gc-green: #46fb04;
+    --gc-white: #f2f5f7;
+    --gc-muted: #8a97a8;
+    --gc-line: rgba(138, 151, 168, 0.18);
+    --gc-chain-gradient: linear-gradient(90deg, #00b2fa, #46fb04);
+    --gc-font: 'Exo 2', system-ui, sans-serif;
+    --f-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     --gc-radius-card: 22px;
     --gc-radius-pill: 9999px;
-    --f-wordmark: 'Poppins', system-ui, sans-serif;
-    --f-tagline: 'Montserrat', system-ui, sans-serif;
-    --f-badge: 'Barlow Condensed', system-ui, sans-serif;
-    --f-ui: 'Hanken Grotesk', system-ui, -apple-system, 'Segoe UI', sans-serif;
-    --f-num: 'IBM Plex Sans', system-ui, sans-serif;
+    --st-warn: #f5a623;
+    --st-down: #c0392b;
   }
   :global(*),
   :global(*::before),
@@ -34,16 +30,17 @@
     box-sizing: border-box;
   }
   :global(html) {
-    background: var(--gc-black);
+    background: var(--gc-night);
   }
   :global(body) {
     margin: 0;
     min-height: 100vh;
-    background: var(--gc-black);
-    color: var(--gc-text);
-    font-family: var(--f-ui);
-    font-size: 16px;
-    line-height: 1.5;
+    background: var(--gc-night);
+    color: var(--gc-white);
+    font-family: var(--gc-font);
+    font-weight: 600;
+    font-size: 15px;
+    line-height: 1.45;
     -webkit-font-smoothing: antialiased;
     overflow-x: hidden;
   }

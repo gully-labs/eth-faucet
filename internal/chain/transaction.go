@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync/atomic"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -15,6 +16,24 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	log "github.com/sirupsen/logrus"
 )
+
+const (
+	// fallbackGasLimit is used when eth_estimateGas fails: enough for a plain transfer on Arbitrum Nitro, where the
+	// L1 data fee is charged as extra gas on top of the 21000 of an EVM transfer.
+	fallbackGasLimit = uint64(60000)
+	// gasLimitMarginPct is applied to the node's estimate: the L1 data component moves with the parent chain's gas
+	// price between the estimate and the block that includes the transfer.
+	gasLimitMarginPct = uint64(130)
+)
+
+// gasLimitFor turns an eth_estimateGas result into the gas limit of the transfer: the estimate plus a 30% margin, or
+// the fallback when the estimate failed. A fixed 21000 fails on Arbitrum Nitro with "intrinsic gas too low".
+func gasLimitFor(estimate uint64, err error) uint64 {
+	if err != nil || estimate == 0 {
+		return fallbackGasLimit
+	}
+	return estimate * gasLimitMarginPct / 100
+}
 
 type TxBuilder interface {
 	Sender() common.Address
@@ -69,8 +88,12 @@ func (b *TxBuild) Transfer(ctx context.Context, to string, value *big.Int) (comm
 		return common.Hash{}, fmt.Errorf("invalid transfer value: must be positive")
 	}
 
-	gasLimit := uint64(21000)
 	toAddress := common.HexToAddress(to)
+	estimate, estimateErr := b.client.EstimateGas(ctx, ethereum.CallMsg{From: b.fromAddress, To: &toAddress, Value: value})
+	if estimateErr != nil {
+		log.WithFields(log.Fields{"error": estimateErr, "to": toAddress}).Warn("gas estimate failed, using the fallback gas limit")
+	}
+	gasLimit := gasLimitFor(estimate, estimateErr)
 
 	nonce := b.getAndIncrementNonce()
 
