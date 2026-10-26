@@ -17,6 +17,16 @@
     { name: 'Docs', href: 'https://docs.gullychain.xyz/', icon: 'book' },
     { name: 'Explorer', href: CHAIN.explorer + '/', icon: 'search' },
   ];
+  // Footer: every GullyChain product, same tab (one product family). Header nav is the <gc-switcher> element.
+  const PRODUCTS = [
+    { name: 'GullyChain', href: 'https://gullychain.xyz/' },
+    { name: 'App', href: 'https://app.gullychain.xyz/' },
+    { name: 'Bridge', href: 'https://testnet-bridge.gullychain.xyz/' },
+    { name: 'Explorer', href: CHAIN.explorer + '/' },
+    { name: 'Docs', href: 'https://docs.gullychain.xyz/' },
+    { name: 'Developers', href: 'https://dev.gullychain.xyz/' },
+    { name: 'Status', href: 'https://status.gullylabs.xyz/' },
+  ];
   const SOURCE = 'https://github.com/gully-labs/eth-faucet';
 
   // Lucide icons (ISC, lucide.dev): 24-unit paths, drawn at 20px, stroke 1.75
@@ -428,12 +438,8 @@
 
 <header class="nav">
   <div class="wrap">
-    <a class="logo" href="/" aria-label="GullyChain testnet faucet"><img src="/brand/logo/gullychain-logo-transparent.png" width="656" height="152" alt="GullyChain" /><span class="role">Faucet</span></a>
-    <nav aria-label="GullyChain"><ul>
-      {#each LINKS as l}
-        <li><a href={l.href} rel="noopener"><span class="ic">{@html icon(l.icon)}</span><span class="t">{l.name}</span></a></li>
-      {/each}
-    </ul></nav>
+    <!-- GullyChain product switcher (public/gc-switcher.js, canonical copy in gully-ops sites/_shared/gc-switcher) -->
+    <gc-switcher current="faucet"></gc-switcher>
     <div class="navr">
       <span class="pill" class:live={blockNumber != null} class:flash={blockBumped} role="status" aria-live="polite" title="Latest block from {CHAIN.rpc}"><span class="dot" aria-hidden="true"></span><span>{blockNumber == null ? 'Connecting' : 'Live · #' + fmtBlock(blockNumber)}</span></span>
       <button type="button" class="btn ter sm hide-s" onclick={addToWallet} disabled={addingChain}><span class="ic">{@html icon(networkAdded ? 'check' : 'wallet')}</span>Add to wallet</button>
@@ -572,7 +578,7 @@
 <footer>
   <div class="wrap">
     <div><span class="wm">Gully<span class="c">Chain</span></span><span class="tag">Testnet faucet · chain {CHAIN.id}</span></div>
-    <ul>{#each LINKS as l}<li><a href={l.href} rel="noopener">{l.name}</a></li>{/each}<li><a href={SOURCE} rel="noopener">Source</a></li></ul>
+    <nav aria-label="GullyChain products"><ul>{#each PRODUCTS as l}<li><a href={l.href}>{l.name}</a></li>{/each}<li><a href={SOURCE} target="_blank" rel="noopener noreferrer">Source</a></li></ul></nav>
     <p class="copy2">Testnet only. Tokens have no value. MIT, a fork of chainflag/eth-faucet.</p>
   </div>
 </footer>
@@ -615,13 +621,6 @@
   /* nav: kit logo at 40px (logo/gullychain-logo-transparent.png, width auto) */
   .nav { position: sticky; top: 0; z-index: 20; background: rgba(5, 8, 13, 0.88); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-bottom: 1px solid var(--gc-line); }
   .nav .wrap { display: flex; align-items: center; justify-content: space-between; height: 64px; gap: 14px; }
-  .logo { display: inline-flex; align-items: center; gap: 10px; color: var(--gc-white); white-space: nowrap; }
-  .logo img { height: 40px; width: auto; }
-  .logo .role { color: var(--gc-muted); font-weight: 800; font-size: 15px; text-transform: uppercase; letter-spacing: 0.05em; padding-left: 10px; border-left: 1px solid var(--gc-line); }
-  .nav ul { list-style: none; margin: 0; padding: 0; display: flex; gap: 2px; min-width: 0; }
-  .nav ul a { display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 0 11px; border-radius: 8px; color: var(--gc-muted); font-weight: 600; font-size: 14px; white-space: nowrap; transition: color 0.15s ease, background 0.15s ease; }
-  .nav ul a:hover { color: var(--gc-white); background: var(--gc-ink); }
-  .nav ul a:hover .ic { color: var(--gc-cyan); }
   .navr { display: flex; align-items: center; gap: 10px; flex: none; }
   .pill { display: inline-flex; align-items: center; gap: 8px; height: 32px; padding: 0 12px; border-radius: var(--gc-radius-pill); border: 1px solid var(--gc-line); background: var(--gc-ink); font-size: 13px; font-weight: 600; color: var(--gc-muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
   .pill .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--gc-muted); flex: none; }
@@ -786,7 +785,7 @@
 
   @media (min-width: 700px) { .wrap { padding: 0 28px; } .more { grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); } }
   @media (min-width: 900px) { .hero .wrap { grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: 28px; align-items: stretch; } .stats { grid-template-columns: repeat(5, 1fr); } }
-  @media (max-width: 899px) { .nav ul a .t { display: none; } .mascot { opacity: 0.45; } }
-  @media (max-width: 640px) { .hide-s { display: none; } .logo .role { display: none; } .logo img { height: 32px; } .field { flex-direction: column; } .btn.pri { width: 100%; } .ctas .btn { flex: 1 1 auto; } .tape .trk { animation: none; padding-left: 90px; overflow-x: auto; } dl div { grid-template-columns: 1fr; gap: 2px; } .stepper li + li::before { width: 12px; margin: 0 6px; } }
+  @media (max-width: 899px) { .mascot { opacity: 0.45; } }
+  @media (max-width: 640px) { .hide-s { display: none; } .field { flex-direction: column; } .btn.pri { width: 100%; } .ctas .btn { flex: 1 1 auto; } .tape .trk { animation: none; padding-left: 90px; overflow-x: auto; } dl div { grid-template-columns: 1fr; gap: 2px; } .stepper li + li::before { width: 12px; margin: 0 6px; } }
   @media (prefers-reduced-motion: reduce) { .pill .dot, .toast, .btn::after, .spinner { animation: none !important; } .toast .pb { display: none; } .tape .trk { animation: none; padding-left: 90px; overflow-x: auto; } .btn, .btn .ar { transition: none; } }
 </style>
