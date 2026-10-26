@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://faucet.gullychain.xyz/sitemap.xml

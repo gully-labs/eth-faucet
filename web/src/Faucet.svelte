@@ -18,6 +18,13 @@
     { name: 'Explorer', href: CHAIN.explorer + '/', icon: 'search' },
   ];
   const SOURCE = 'https://github.com/gully-labs/eth-faucet';
+  // Official GullyChain channels (every GullyChain footer carries them).
+  const SOCIALS = [
+    { name: 'Telegram', href: 'https://t.me/GullyChain' },
+    { name: 'Deploys', href: 'https://t.me/GullyChainDeploys' },
+    { name: 'Discord', href: 'https://discord.com/invite/tY2ErsNNBp' },
+    { name: 'X', href: 'https://x.com/Gully_Labs' },
+  ];
 
   // Lucide icons (ISC, lucide.dev): 24-unit paths, drawn at 20px, stroke 1.75
   const ICONS = {
@@ -431,7 +438,7 @@
     <a class="logo" href="/" aria-label="GullyChain testnet faucet"><img src="/brand/logo/gullychain-logo-transparent.png" width="656" height="152" alt="GullyChain" /><span class="role">Faucet</span></a>
     <nav aria-label="GullyChain"><ul>
       {#each LINKS as l}
-        <li><a href={l.href} rel="noopener"><span class="ic">{@html icon(l.icon)}</span><span class="t">{l.name}</span></a></li>
+        <li><a href={l.href} target="_blank" rel="noopener noreferrer"><span class="ic">{@html icon(l.icon)}</span><span class="t">{l.name}</span></a></li>
       {/each}
     </ul></nav>
     <div class="navr">
@@ -490,7 +497,7 @@
           <button type="button" class="btn sec" onclick={addToWallet} disabled={addingChain}>
             <span class="ic">{@html icon(networkAdded ? 'check' : 'plus')}</span>{networkAdded ? 'Network added' : 'Add GullyChain Testnet'}<span class="ic ar">{@html icon('arrow')}</span>
           </button>
-          <a class="btn ter" class:glow={paid} href={LINKS[0].href} rel="noopener">
+          <a class="btn ter" class:glow={paid} href={LINKS[0].href} target="_blank" rel="noopener noreferrer">
             <span class="ic">{@html icon('grid')}</span>Open the app<span class="ic ar">{@html icon('arrow')}</span>
           </a>
         </div>
@@ -520,7 +527,7 @@
         <div class="tape" aria-label="Latest faucet payouts"><span class="lb lab">Faucet</span><div class="trk" class:static={!events.length}>
           {#if events.length}
             {#each events as e (e.hash)}
-              <span class="it"><span class="ic">{@html icon('droplet')}</span><b>{e.value} ETH</b> to <a class="mono" href="{CHAIN.explorer}/address/{e.to}" rel="noopener">{short(e.to)}</a> · #{fmtBlock(e.n)} · {ago(e.ts)} ago</span>
+              <span class="it"><span class="ic">{@html icon('droplet')}</span><b>{e.value} ETH</b> to <a class="mono" href="{CHAIN.explorer}/address/{e.to}" target="_blank" rel="noopener noreferrer">{short(e.to)}</a> · #{fmtBlock(e.n)} · {ago(e.ts)} ago</span>
             {/each}
           {:else}
             <span class="it">No payouts in the last {BLOCKS_KEEP} blocks{#if lastBlock} · block #{fmtBlock(lastBlock.n)} · {ago(lastBlock.ts)} ago{/if}</span>
@@ -548,7 +555,7 @@
         <div><dt>Chain ID</dt><dd class="num">{CHAIN.id}</dd></div>
         <div><dt>RPC URL</dt><dd class="mono">{CHAIN.rpc}</dd></div>
         <div><dt>Currency</dt><dd>ETH</dd></div>
-        <div><dt>Explorer</dt><dd class="mono"><a href={CHAIN.explorer} rel="noopener">{CHAIN.explorer.replace('https://', '')}</a></dd></div>
+        <div><dt>Explorer</dt><dd class="mono"><a href={CHAIN.explorer} target="_blank" rel="noopener noreferrer">{CHAIN.explorer.replace('https://', '')}</a></dd></div>
       </dl>
     </div>
     <div class="group band">
@@ -557,8 +564,8 @@
         <h2>Bridge from Arbitrum Sepolia</h2>
         <p class="muted">Deposit Arbitrum Sepolia ETH through the testnet bridge, or read how the testnet works in the docs.</p>
         <div class="ctas">
-          <a class="btn ter sm" href={LINKS[1].href} rel="noopener"><span class="ic">{@html icon('arrows')}</span>Bridge<span class="ic ar">{@html icon('arrow')}</span></a>
-          <a class="btn ter sm" href={LINKS[2].href} rel="noopener"><span class="ic">{@html icon('book')}</span>Docs<span class="ic ar">{@html icon('arrow')}</span></a>
+          <a class="btn ter sm" href={LINKS[1].href} target="_blank" rel="noopener noreferrer"><span class="ic">{@html icon('arrows')}</span>Bridge<span class="ic ar">{@html icon('arrow')}</span></a>
+          <a class="btn ter sm" href={LINKS[2].href} target="_blank" rel="noopener noreferrer"><span class="ic">{@html icon('book')}</span>Docs<span class="ic ar">{@html icon('arrow')}</span></a>
         </div>
       </div>
       <div class="mascot" aria-hidden="true">
@@ -571,9 +578,13 @@
 
 <footer>
   <div class="wrap">
-    <div><span class="wm">Gully<span class="c">Chain</span></span><span class="tag">Testnet faucet · chain {CHAIN.id}</span></div>
-    <ul>{#each LINKS as l}<li><a href={l.href} rel="noopener">{l.name}</a></li>{/each}<li><a href={SOURCE} rel="noopener">Source</a></li></ul>
-    <p class="copy2">Testnet only. Tokens have no value. MIT, a fork of chainflag/eth-faucet.</p>
+    <div><a class="fwm" href="https://gullychain.xyz" target="_blank" rel="noopener noreferrer" aria-label="GullyChain home (opens in a new tab)"><img src="/brand/logo/gullychain-logo-transparent.png" width="656" height="152" alt="GullyChain" loading="lazy" /></a><span class="tag">Testnet faucet · chain {CHAIN.id}</span></div>
+    <ul>{#each LINKS as l}<li><a href={l.href} target="_blank" rel="noopener noreferrer">{l.name}</a></li>{/each}<li><a href={SOURCE} target="_blank" rel="noopener noreferrer">Source</a></li></ul>
+    <ul aria-label="Official GullyChain channels">{#each SOCIALS as l}<li><a href={l.href} target="_blank" rel="noopener noreferrer">{l.name}</a></li>{/each}</ul>
+    <div class="fbot">
+      <p class="copy2">Testnet only. Tokens have no value. MIT, a fork of chainflag/eth-faucet.</p>
+      <a class="glb" href="https://gullylabs.xyz" target="_blank" rel="noopener noreferrer" aria-label="Powered by Gully Labs (opens in a new tab)"><img src="/brand/gully-labs/powered-by-gully-labs-dark.png" srcset="/brand/gully-labs/powered-by-gully-labs-dark.png 1x, /brand/gully-labs/powered-by-gully-labs-dark-2x.png 2x, /brand/gully-labs/powered-by-gully-labs-dark-3x.png 3x" width="127" height="32" alt="Powered by Gully Labs" loading="lazy" /></a>
+    </div>
   </div>
 </footer>
 
@@ -585,7 +596,7 @@
       <span class="ic">{@html icon(t.icon)}</span>
       <div class="body">
         <b>{t.title}</b>
-        {#if t.message}<p>{t.message}{#if t.link} · <a href={t.link.href} rel="noopener">{t.link.text}</a>{/if}</p>{/if}
+        {#if t.message}<p>{t.message}{#if t.link} · <a href={t.link.href} target="_blank" rel="noopener noreferrer">{t.link.text}</a>{/if}</p>{/if}
       </div>
       <button type="button" class="x" onclick={() => dismiss(t.id)} aria-label="Dismiss">{@html icon('x')}</button>
       <span class="pb" style="animation-duration:{t.ms}ms"></span>
@@ -761,10 +772,16 @@
   footer ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 14px; font-size: 13.5px; }
   footer ul a { color: var(--gc-muted); }
   footer ul a:hover { color: var(--gc-white); }
-  .wm { font-weight: 800; letter-spacing: -0.01em; color: var(--gc-white); font-size: 20px; line-height: 1; }
-  .wm .c { background: var(--gc-chain-gradient); -webkit-background-clip: text; background-clip: text; color: transparent; }
   footer .tag { font-weight: 600; letter-spacing: 0.05em; font-size: 12px; color: var(--gc-muted); margin-top: 6px; display: block; text-transform: uppercase; }
   footer .copy2 { font-size: 12.5px; color: var(--gc-muted); width: 100%; margin: 0; }
+  footer .fwm { display: inline-flex; line-height: 0; }
+  footer .fwm img { height: 36px; width: auto; }
+  footer .fbot { width: 100%; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; padding-top: 12px; border-top: 1px solid var(--gc-line); }
+  footer .fbot .copy2 { width: auto; }
+  .glb { display: inline-flex; line-height: 0; flex: none; border-radius: 8px; }
+  .glb img { height: 32px; width: auto; }
+  .glb:focus-visible { outline: 2px solid var(--gc-cyan); outline-offset: 3px; }
+  @media (max-width: 640px) { .glb img { height: 26px; } }
 
   /* toasts */
   .toasts { position: fixed; right: 16px; bottom: 16px; z-index: 60; display: flex; flex-direction: column; gap: 10px; width: min(360px, calc(100vw - 32px)); pointer-events: none; }
