@@ -1,6 +1,7 @@
 <script>
   import { onMount, onDestroy } from 'svelte';
   import { getAddress } from '@ethersproject/address';
+  import GullySignIn from './GullySignIn.svelte';
 
   // GullyChain testnet faucet (gully-labs fork): brand kit v3 in the landing's "Terminal" language. The faucet logic,
   // flags and API below are upstream's; only the page changed.
@@ -42,6 +43,20 @@
   const icon = (n) => `<svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[n] || ICONS.info}</svg>`;
 
   let input = null;
+  // Sign in with Gully (only when /api/info has gullyid_client): fill the field with the main wallet, but never
+  // overwrite an address the visitor typed; clear it again on sign-out only if it is still the filled-in one.
+  let gullyFilled = null;
+  function onGullyWallet(address) {
+    const current = (input || '').trim();
+    if (address) {
+      if (!current || current === gullyFilled) input = address;
+      gullyFilled = address;
+      if (step < 2) step = 2;
+    } else {
+      if (gullyFilled && current === gullyFilled) input = '';
+      gullyFilled = null;
+    }
+  }
   let faucetInfo = {
     account: '0x0000000000000000000000000000000000000000',
     network: 'testnet',
@@ -457,6 +472,9 @@
 
         <div id="hcaptcha" data-size="invisible"></div>
         <form id="claim" class="claim" onsubmit={(e) => { e.preventDefault(); if (!isLoading) handleRequest(); }}>
+          {#if faucetInfo.gullyid_client}
+            <GullySignIn clientId={faucetInfo.gullyid_client} issuer={faucetInfo.gullyid_issuer || undefined} onwallet={onGullyWallet} />
+          {/if}
           <label class="lab" for="address">Your address or ENS name</label>
           <div class="field">
             <input

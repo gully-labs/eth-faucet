@@ -9,6 +9,8 @@ type Config struct {
 	proxyCount      int
 	hcaptchaSiteKey string
 	hcaptchaSecret  string
+	gullyIDClient   string // empty = no "Sign in with Gully" button (see SetGullyID)
+	gullyIDIssuer   string
 }
 
 func NewConfig(network, symbol string, httpPort, interval, proxyCount int, payout float64, hcaptchaSiteKey, hcaptchaSecret string) *Config {
