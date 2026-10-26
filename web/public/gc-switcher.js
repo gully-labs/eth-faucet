@@ -123,7 +123,7 @@
     this.shadowRoot.innerHTML = '<style>' + CSS + '</style>' +
       '<a class="logo" href="' + HOME + '" aria-label="GullyChain home"><img src="' + ICON + '" width="32" height="32" alt="">' + WORDMARK + '</a>' +
       '<button class="trig" type="button" aria-haspopup="dialog" aria-expanded="false" aria-label="GullyChain products' + (curP ? ', current: ' + esc(curP.label) : '') + '">' +
-      '<span class="cl">' + esc(curP ? curP.label : 'Products') + '</span>' + GRID + '</button>' +
+      '<span class="cl">' + esc(curP ? curP.label : 'Apps') + '</span>' + GRID + '</button>' +
       '<dialog aria-label="GullyChain products"><div class="p"><div class="hd"><b>GullyChain</b><button class="x" type="button" aria-label="Close">' + CLOSE + '</button></div>' +
       '<ul>' + items + '</ul>' +
       '<div class="ft"><span>Testnet &middot; chain 485590</span><a href="' + HOME + '">gullychain.xyz</a></div></div></dialog>';
