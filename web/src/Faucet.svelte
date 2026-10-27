@@ -60,6 +60,7 @@
   const icon = (n) => `<svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[n] || ICONS.info}</svg>`;
 
   let input = null;
+  let fieldError = ''; // inline validation message under the address field
   // Sign in with Gully (only when /api/info has gullyid_client): fill the field with the main wallet, but never
   // overwrite an address the visitor typed; clear it again on sign-out only if it is still the filled-in one.
   let gullyFilled = null;
@@ -327,7 +328,9 @@
     if (isLoading) return;
 
     let address = input?.trim();
+    fieldError = '';
     if (!address) {
+      fieldError = 'Enter an address (0x…) or an ENS name.';
       toast({
         message: 'Please enter an address or ENS name',
         type: 'is-warning',
@@ -354,6 +357,7 @@
           const resolvedAddress = data?.address;
 
           if (!resolvedAddress || !resolvedAddress.startsWith('0x')) {
+            fieldError = 'That ENS name has no address.';
             toast({
               message: 'Invalid ENS name or no address found',
               type: 'is-warning',
@@ -373,6 +377,7 @@
       try {
         address = getAddress(address);
       } catch {
+        fieldError = 'That is not a valid address: 42 characters, starting with 0x.';
         toast({ message: 'Invalid Ethereum address', type: 'is-warning' });
         return;
       }
@@ -498,6 +503,9 @@
               autocomplete="off"
               spellcheck="false"
               placeholder="0x… or name.eth"
+              aria-invalid={fieldError ? 'true' : undefined}
+              aria-describedby={fieldError ? 'address-err' : undefined}
+              oninput={() => (fieldError = '')}
               onfocus={() => { if (step < 2) step = 2; }}
               onkeydown={(e) => {
                 if (e.key === 'Enter' && !isLoading) {
@@ -514,6 +522,7 @@
               {/if}
             </button>
           </div>
+          {#if fieldError}<p id="address-err" class="ferr">{fieldError}</p>{/if}
           <p class="hint">Serving from <button type="button" class="addr mono" onclick={() => copyText(faucetInfo.account, 'Faucet address')} title="Copy the faucet address">{faucetInfo.account}</button>{#if faucetInfo.hcaptcha_sitekey} · protected by hCaptcha{/if}</p>
         </form>
 
@@ -715,6 +724,9 @@
   .input { flex: 1 1 auto; min-width: 0; min-height: 44px; padding: 0 16px; border-radius: var(--gc-radius-pill); border: 1px solid var(--gc-line); background: var(--gc-night); color: var(--gc-white); font-size: 14px; outline: none; transition: border-color 0.15s; }
   .input::placeholder { color: var(--gc-muted); opacity: 0.8; font-family: var(--gc-font); }
   .input:focus { border-color: var(--gc-cyan); }
+  .input:focus-visible { box-shadow: 0 0 0 2px var(--gc-cyan); }
+  .input[aria-invalid='true'] { border-color: #ff6b6b; }
+  .ferr { margin: 0; font-size: 13px; color: #ff8a8a; }
   .hint { margin: 0; font-size: 13px; color: var(--gc-muted); overflow-wrap: anywhere; }
   .addr { background: none; border: 0; padding: 0; color: var(--gc-white); font-size: 12.5px; cursor: copy; border-bottom: 1px dashed var(--gc-line); overflow-wrap: anywhere; word-break: break-all; text-align: left; }
   .addr:hover { border-bottom-color: var(--gc-cyan); }
@@ -821,6 +833,6 @@
   @media (min-width: 700px) { .wrap { padding: 0 28px; } .more { grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); } }
   @media (min-width: 900px) { .hero .wrap { grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: 28px; align-items: stretch; } .stats { grid-template-columns: repeat(5, 1fr); } }
   @media (max-width: 899px) { .mascot { opacity: 0.45; } }
-  @media (max-width: 640px) { .hide-s { display: none; } .field { flex-direction: column; } .btn.pri { width: 100%; } .ctas .btn { flex: 1 1 auto; } .tape .trk { animation: none; padding-left: 90px; overflow-x: auto; } dl div { grid-template-columns: 1fr; gap: 2px; } .stepper li + li::before { width: 12px; margin: 0 6px; } }
+  @media (max-width: 640px) { footer ul a { display: inline-flex; align-items: center; min-height: 40px; } .btn.xs { min-height: 40px; } .addr { padding: 8px 0; } .hide-s { display: none; } .field { flex-direction: column; } .btn.pri { width: 100%; } .ctas .btn { flex: 1 1 auto; } .tape .trk { animation: none; padding-left: 90px; overflow-x: auto; } dl div { grid-template-columns: 1fr; gap: 2px; } .stepper li + li::before { width: 12px; margin: 0 6px; } }
   @media (prefers-reduced-motion: reduce) { .pill .dot, .toast, .btn::after, .spinner { animation: none !important; } .toast .pb { display: none; } .tape .trk { animation: none; padding-left: 90px; overflow-x: auto; } .btn, .btn .ar { transition: none; } }
 </style>
