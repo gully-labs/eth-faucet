@@ -70,6 +70,12 @@ export KEYSTORE=keystore_path
 echo "your_keystore_password" > `pwd`/password.txt
 ```
 
+`WEB3_PROVIDER` (and `-wallet.provider`) accept an ordered, comma-separated list of http(s) RPC URLs. Each call goes to
+the first healthy URL and moves on to the next after a network error, an 8s timeout, HTTP 5xx/429 or a JSON-RPC
+rate-limit error; a failed URL is skipped for 30s, then tried again. Attempts are sequential, so a signed transaction
+is never broadcast to two URLs at once. Empty = the Gully Chain testnet public list:
+`https://rpc.gullychain.xyz,https://rpc.gullyrpc.xyz/gullychain/evm/485590,https://rpc2.gullychain.xyz,https://testnet-rpc.gullychain.xyz`.
+
 Then run the faucet application without the wallet command-line flags:
 ```bash
 ./eth-faucet -httpport 8080

@@ -5,6 +5,7 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 	"math/big"
+	"net/http"
 	"strings"
 	"sync/atomic"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/rpc"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -49,8 +51,11 @@ type TxBuild struct {
 	supportsEIP1559 bool
 }
 
+// NewTxBuilder connects to provider, a single RPC URL or a comma-separated ordered list of http(s) URLs (empty =
+// DefaultProviders). With http(s) URLs every call goes through a FallbackTransport: first healthy URL wins, the next
+// one is tried after a network error, timeout, 5xx/429 or rate-limit error.
 func NewTxBuilder(provider string, privateKey *ecdsa.PrivateKey, chainID *big.Int) (TxBuilder, error) {
-	client, err := ethclient.Dial(provider)
+	client, err := dialProviders(ParseProviders(provider))
 	if err != nil {
 		return nil, err
 	}
@@ -182,6 +187,25 @@ func (b *TxBuild) refreshNonce(ctx context.Context) {
 
 	atomic.StoreUint64(&b.nonce, nonce)
 	log.WithField("nonce", nonce).Info("Nonce refreshed successfully")
+}
+
+func dialProviders(urls []string) (*ethclient.Client, error) {
+	for _, u := range urls {
+		lower := strings.ToLower(u)
+		if !strings.HasPrefix(lower, "http://") && !strings.HasPrefix(lower, "https://") {
+			// ws:// or IPC: no HTTP fallback, use the first URL as before.
+			if len(urls) > 1 {
+				log.WithField("rpc", u).Warn("non-http provider in a list: only the first URL is used")
+			}
+			return ethclient.Dial(urls[0])
+		}
+	}
+	log.WithField("providers", strings.Join(urls, ", ")).Info("rpc providers (in fallback order)")
+	rpcClient, err := rpc.DialHTTPWithClient(urls[0], &http.Client{Transport: NewFallbackTransport(urls)})
+	if err != nil {
+		return nil, err
+	}
+	return ethclient.NewClient(rpcClient), nil
 }
 
 func checkEIP1559Support(client *ethclient.Client) (bool, error) {
