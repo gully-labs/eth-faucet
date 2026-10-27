@@ -2,7 +2,9 @@ package server
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"math/big"
 	"net/http"
 	"strconv"
 	"time"
@@ -15,15 +17,17 @@ import (
 )
 
 type Server struct {
-	chain.TxBuilder
-	cfg    *Config
-	server *http.Server
+	txBuilder chain.TxBuilder
+	cfg       *Config
+	server    *http.Server
+	payoutWei *big.Int
 }
 
 func NewServer(builder chain.TxBuilder, cfg *Config) *Server {
 	return &Server{
-		TxBuilder: builder,
+		txBuilder: builder,
 		cfg:       cfg,
+		payoutWei: chain.EtherToWei(cfg.payout),
 	}
 }
 
@@ -31,8 +35,12 @@ func (s *Server) setupRouter() *http.ServeMux {
 	router := http.NewServeMux()
 	router.Handle("/", http.FileServer(web.Dist()))
 	limiter := NewLimiter(s.cfg.proxyCount, time.Duration(s.cfg.interval)*time.Minute)
-	hcaptcha := NewCaptcha(s.cfg.hcaptchaSiteKey, s.cfg.hcaptchaSecret)
-	router.Handle("/api/claim", negroni.New(limiter, hcaptcha, negroni.Wrap(s.handleClaim())))
+	middlewares := []negroni.Handler{limiter}
+	if s.cfg.hcaptchaSecret != "" {
+		middlewares = append(middlewares, NewCaptcha(s.cfg.hcaptchaSiteKey, s.cfg.hcaptchaSecret))
+	}
+	middlewares = append(middlewares, negroni.Wrap(s.handleClaim()))
+	router.Handle("/api/claim", negroni.New(middlewares...))
 	router.Handle("/api/info", s.handleInfo())
 
 	return router
@@ -51,7 +59,7 @@ func (s *Server) Run() {
 	}
 
 	log.Infof("Starting http server on port %d", s.cfg.httpPort)
-	if err := s.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+	if err := s.server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		log.Fatalf("Server failed to start: %v", err)
 	}
 }
@@ -65,18 +73,21 @@ func (s *Server) Shutdown(ctx context.Context) error {
 
 func (s *Server) handleClaim() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "POST" {
+		if r.Method != http.MethodPost {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
 
-		// Address has already been validated by limiter
-		address, _ := readAddress(r)
+		address, ok := r.Context().Value(addressContextKey).(string)
+		if !ok || address == "" {
+			renderJSON(w, claimResponse{Message: "invalid request"}, http.StatusBadRequest)
+			return
+		}
 
 		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 		defer cancel()
 
-		txHash, err := s.Transfer(ctx, address, chain.EtherToWei(s.cfg.payout))
+		txHash, err := s.txBuilder.Transfer(ctx, address, new(big.Int).Set(s.payoutWei))
 		if err != nil {
 			log.WithFields(log.Fields{
 				"error":   err,
@@ -97,12 +108,12 @@ func (s *Server) handleClaim() http.HandlerFunc {
 
 func (s *Server) handleInfo() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "GET" {
+		if r.Method != http.MethodGet {
 			http.NotFound(w, r)
 			return
 		}
 		renderJSON(w, infoResponse{
-			Account:         s.Sender().String(),
+			Account:         s.txBuilder.Sender().String(),
 			Network:         s.cfg.network,
 			Symbol:          s.cfg.symbol,
 			Payout:          strconv.FormatFloat(s.cfg.payout, 'f', -1, 64),
