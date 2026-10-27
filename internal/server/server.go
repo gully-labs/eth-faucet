@@ -107,6 +107,8 @@ func (s *Server) handleInfo() http.HandlerFunc {
 			Symbol:          s.cfg.symbol,
 			Payout:          strconv.FormatFloat(s.cfg.payout, 'f', -1, 64),
 			HcaptchaSiteKey: s.cfg.hcaptchaSiteKey,
+			GullyIDClient:   s.cfg.gullyIDClient,
+			GullyIDIssuer:   s.cfg.gullyIDIssuer,
 		}, http.StatusOK)
 	}
 }
