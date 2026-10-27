@@ -40,6 +40,9 @@ var (
 
 	hcaptchaSiteKeyFlag = flag.String("hcaptcha.sitekey", os.Getenv("HCAPTCHA_SITEKEY"), "hCaptcha sitekey")
 	hcaptchaSecretFlag  = flag.String("hcaptcha.secret", os.Getenv("HCAPTCHA_SECRET"), "hCaptcha secret")
+
+	gullyIDClientFlag = flag.String("gullyid.client", os.Getenv("GULLY_ID_CLIENT_ID"), "Gully ID client id for the \"Sign in with Gully\" button (empty = off)")
+	gullyIDIssuerFlag = flag.String("gullyid.issuer", os.Getenv("GULLY_ID_ISSUER"), "Gully ID issuer origin (default "+server.DefaultGullyIDIssuer+")")
 )
 
 func init() {
@@ -66,6 +69,9 @@ func Execute() {
 	}
 
 	config := server.NewConfig(*netnameFlag, *symbolFlag, *httpPortFlag, *intervalFlag, *proxyCntFlag, *payoutFlag, *hcaptchaSiteKeyFlag, *hcaptchaSecretFlag)
+	if err := config.SetGullyID(*gullyIDClientFlag, *gullyIDIssuerFlag); err != nil {
+		panic(err)
+	}
 	srv := server.NewServer(txBuilder, config)
 
 	// Run server in goroutine

@@ -26,6 +26,8 @@ type infoResponse struct {
 	Payout          string `json:"payout"`
 	Symbol          string `json:"symbol"`
 	HcaptchaSiteKey string `json:"hcaptcha_sitekey,omitempty"`
+	GullyIDClient   string `json:"gullyid_client,omitempty"`
+	GullyIDIssuer   string `json:"gullyid_issuer,omitempty"`
 }
 
 type malformedRequest struct {
