@@ -1,7 +1,6 @@
 package server
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"net"
@@ -15,10 +14,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/negroni/v3"
 )
-
-type contextKey int
-
-const addressContextKey contextKey = iota
 
 type Limiter struct {
 	mutex      sync.Mutex
@@ -48,8 +43,6 @@ func (l *Limiter) ServeHTTP(w http.ResponseWriter, r *http.Request, next http.Ha
 		}
 		return
 	}
-
-	r = r.WithContext(context.WithValue(r.Context(), addressContextKey, address))
 
 	if l.ttl <= 0 {
 		next.ServeHTTP(w, r)
@@ -114,15 +107,24 @@ func getClientIPFromRequest(proxyCount int, r *http.Request) string {
 
 type Captcha struct {
 	client *hcaptcha.Client
+	secret string
 }
 
 func NewCaptcha(hcaptchaSiteKey, hcaptchaSecret string) *Captcha {
 	client := hcaptcha.New(hcaptchaSecret)
 	client.SiteKey = hcaptchaSiteKey
-	return &Captcha{client: client}
+	return &Captcha{
+		client: client,
+		secret: hcaptchaSecret,
+	}
 }
 
 func (c *Captcha) ServeHTTP(w http.ResponseWriter, r *http.Request, next http.HandlerFunc) {
+	if c.secret == "" {
+		next.ServeHTTP(w, r)
+		return
+	}
+
 	response := c.client.VerifyToken(r.Header.Get("h-captcha-response"))
 	if !response.Success {
 		renderJSON(w, claimResponse{Message: "Captcha verification failed, please try again"}, http.StatusTooManyRequests)

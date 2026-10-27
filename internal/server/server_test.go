@@ -3,9 +3,11 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"math/big"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -47,11 +49,11 @@ func TestHandleClaim(t *testing.T) {
 	mockBuilder.On("Transfer", mock.Anything, expectedAddress, expectedAmount).Return(common.Hash{1}, nil)
 
 	server := setupTestServer(mockBuilder)
-	req, err := http.NewRequest("POST", "/api/claim", nil)
+	reqBody := strings.NewReader(fmt.Sprintf(`{"address": "%s"}`, expectedAddress))
+	req, err := http.NewRequest("POST", "/api/claim", reqBody)
 	if err != nil {
 		t.Fatal(err)
 	}
-	req = req.WithContext(context.WithValue(req.Context(), addressContextKey, expectedAddress))
 
 	rr := httptest.NewRecorder()
 	handler := server.handleClaim()

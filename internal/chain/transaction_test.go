@@ -2,6 +2,7 @@ package chain
 
 import (
 	"context"
+	"errors"
 	"math/big"
 	"reflect"
 	"testing"
@@ -59,5 +60,26 @@ func TestTxBuilder(t *testing.T) {
 	}
 	if bal.Cmp(value) != 0 {
 		t.Errorf("expected balance for to address not received. expected: %v actual: %v", value, bal)
+	}
+}
+
+func TestGasLimitFor(t *testing.T) {
+	tests := []struct {
+		name     string
+		estimate uint64
+		err      error
+		want     uint64
+	}{
+		{name: "plain transfer estimate gets a 30% margin", estimate: 21000, want: 27300},
+		{name: "arbitrum estimate with L1 data component", estimate: 21679, want: 28182},
+		{name: "estimate error falls back", estimate: 0, err: errors.New("execution reverted"), want: fallbackGasLimit},
+		{name: "zero estimate falls back", estimate: 0, want: fallbackGasLimit},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := gasLimitFor(tt.estimate, tt.err); got != tt.want {
+				t.Errorf("gasLimitFor() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }

@@ -36,10 +36,13 @@ var (
 	keyJSONFlag  = flag.String("wallet.keyjson", os.Getenv("KEYSTORE"), "Keystore file to fund user requests with")
 	keyPassFlag  = flag.String("wallet.keypass", "password.txt", "Passphrase text file to decrypt keystore")
 	privKeyFlag  = flag.String("wallet.privkey", os.Getenv("PRIVATE_KEY"), "Private key hex to fund user requests with")
-	providerFlag = flag.String("wallet.provider", os.Getenv("WEB3_PROVIDER"), "Endpoint for Ethereum JSON-RPC connection")
+	providerFlag = flag.String("wallet.provider", os.Getenv("WEB3_PROVIDER"), "Ethereum JSON-RPC endpoint, or a comma-separated ordered list with automatic fallback (empty = the Gully Chain testnet public list)")
 
 	hcaptchaSiteKeyFlag = flag.String("hcaptcha.sitekey", os.Getenv("HCAPTCHA_SITEKEY"), "hCaptcha sitekey")
 	hcaptchaSecretFlag  = flag.String("hcaptcha.secret", os.Getenv("HCAPTCHA_SECRET"), "hCaptcha secret")
+
+	gullyIDClientFlag = flag.String("gullyid.client", os.Getenv("GULLY_ID_CLIENT_ID"), "Gully ID client id for the \"Sign in with Gully\" button (empty = off)")
+	gullyIDIssuerFlag = flag.String("gullyid.issuer", os.Getenv("GULLY_ID_ISSUER"), "Gully ID issuer origin (default "+server.DefaultGullyIDIssuer+")")
 )
 
 func init() {
@@ -66,6 +69,9 @@ func Execute() {
 	}
 
 	config := server.NewConfig(*netnameFlag, *symbolFlag, *httpPortFlag, *intervalFlag, *proxyCntFlag, *payoutFlag, *hcaptchaSiteKeyFlag, *hcaptchaSecretFlag)
+	if err := config.SetGullyID(*gullyIDClientFlag, *gullyIDIssuerFlag); err != nil {
+		panic(err)
+	}
 	srv := server.NewServer(txBuilder, config)
 
 	// Run server in goroutine

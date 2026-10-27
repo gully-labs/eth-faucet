@@ -5,16 +5,37 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 	"math/big"
+	"net/http"
 	"strings"
-	"sync"
+	"sync/atomic"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/rpc"
 	log "github.com/sirupsen/logrus"
 )
+
+const (
+	// fallbackGasLimit is used when eth_estimateGas fails: enough for a plain transfer on Arbitrum Nitro, where the
+	// L1 data fee is charged as extra gas on top of the 21000 of an EVM transfer.
+	fallbackGasLimit = uint64(60000)
+	// gasLimitMarginPct is applied to the node's estimate: the L1 data component moves with the parent chain's gas
+	// price between the estimate and the block that includes the transfer.
+	gasLimitMarginPct = uint64(130)
+)
+
+// gasLimitFor turns an eth_estimateGas result into the gas limit of the transfer: the estimate plus a 30% margin, or
+// the fallback when the estimate failed. A fixed 21000 fails on Arbitrum Nitro with "intrinsic gas too low".
+func gasLimitFor(estimate uint64, err error) uint64 {
+	if err != nil || estimate == 0 {
+		return fallbackGasLimit
+	}
+	return estimate * gasLimitMarginPct / 100
+}
 
 type TxBuilder interface {
 	Sender() common.Address
@@ -22,7 +43,6 @@ type TxBuilder interface {
 }
 
 type TxBuild struct {
-	mu              sync.Mutex
 	client          bind.ContractTransactor
 	privateKey      *ecdsa.PrivateKey
 	signer          types.Signer
@@ -31,8 +51,11 @@ type TxBuild struct {
 	supportsEIP1559 bool
 }
 
+// NewTxBuilder connects to provider, a single RPC URL or a comma-separated ordered list of http(s) URLs (empty =
+// DefaultProviders). With http(s) URLs every call goes through a FallbackTransport: first healthy URL wins, the next
+// one is tried after a network error, timeout, 5xx/429 or rate-limit error.
 func NewTxBuilder(provider string, privateKey *ecdsa.PrivateKey, chainID *big.Int) (TxBuilder, error) {
-	client, err := ethclient.Dial(provider)
+	client, err := dialProviders(ParseProviders(provider))
 	if err != nil {
 		return nil, err
 	}
@@ -70,12 +93,14 @@ func (b *TxBuild) Transfer(ctx context.Context, to string, value *big.Int) (comm
 		return common.Hash{}, fmt.Errorf("invalid transfer value: must be positive")
 	}
 
-	b.mu.Lock()
-	defer b.mu.Unlock()
-
-	gasLimit := uint64(21000)
 	toAddress := common.HexToAddress(to)
-	nonce := b.nonce
+	estimate, estimateErr := b.client.EstimateGas(ctx, ethereum.CallMsg{From: b.fromAddress, To: &toAddress, Value: value})
+	if estimateErr != nil {
+		log.WithFields(log.Fields{"error": estimateErr, "to": toAddress}).Warn("gas estimate failed, using the fallback gas limit")
+	}
+	gasLimit := gasLimitFor(estimate, estimateErr)
+
+	nonce := b.getAndIncrementNonce()
 
 	var err error
 	var unsignedTx *types.Transaction
@@ -102,7 +127,6 @@ func (b *TxBuild) Transfer(ctx context.Context, to string, value *big.Int) (comm
 		return common.Hash{}, err
 	}
 
-	b.nonce++
 	return signedTx.Hash(), nil
 }
 
@@ -147,6 +171,10 @@ func (b *TxBuild) buildLegacyTx(ctx context.Context, to *common.Address, value *
 	}), nil
 }
 
+func (b *TxBuild) getAndIncrementNonce() uint64 {
+	return atomic.AddUint64(&b.nonce, 1) - 1
+}
+
 func (b *TxBuild) refreshNonce(ctx context.Context) {
 	nonce, err := b.client.PendingNonceAt(ctx, b.Sender())
 	if err != nil {
@@ -157,8 +185,27 @@ func (b *TxBuild) refreshNonce(ctx context.Context) {
 		return
 	}
 
-	b.nonce = nonce
+	atomic.StoreUint64(&b.nonce, nonce)
 	log.WithField("nonce", nonce).Info("Nonce refreshed successfully")
+}
+
+func dialProviders(urls []string) (*ethclient.Client, error) {
+	for _, u := range urls {
+		lower := strings.ToLower(u)
+		if !strings.HasPrefix(lower, "http://") && !strings.HasPrefix(lower, "https://") {
+			// ws:// or IPC: no HTTP fallback, use the first URL as before.
+			if len(urls) > 1 {
+				log.WithField("rpc", u).Warn("non-http provider in a list: only the first URL is used")
+			}
+			return ethclient.Dial(urls[0])
+		}
+	}
+	log.WithField("providers", strings.Join(urls, ", ")).Info("rpc providers (in fallback order)")
+	rpcClient, err := rpc.DialHTTPWithClient(urls[0], &http.Client{Transport: NewFallbackTransport(urls)})
+	if err != nil {
+		return nil, err
+	}
+	return ethclient.NewClient(rpcClient), nil
 }
 
 func checkEIP1559Support(client *ethclient.Client) (bool, error) {
