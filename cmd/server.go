@@ -9,6 +9,7 @@ import (
 	"math/big"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -43,7 +44,40 @@ var (
 
 	gullyIDClientFlag = flag.String("gullyid.client", os.Getenv("GULLY_ID_CLIENT_ID"), "Gully ID client id for the \"Sign in with Gully\" button (empty = off)")
 	gullyIDIssuerFlag = flag.String("gullyid.issuer", os.Getenv("GULLY_ID_ISSUER"), "Gully ID issuer origin (default "+server.DefaultGullyIDIssuer+")")
+
+	// drain hardening (2026-10-27)
+	gullyIDRequiredFlag = flag.Bool("gullyid.required", envBool("FAUCET_REQUIRE_GULLY_ID", false), "Claims need a Sign in with Gully session (one claim per Gully ID account per window)")
+	eligibilityFlag     = flag.Bool("faucet.eligibility", envBool("FAUCET_ELIGIBILITY", false), "Refuse fresh recipients: the address must be the user's Gully smart account or have history on one of -faucet.activityrpcs")
+	activityRPCsFlag    = flag.String("faucet.activityrpcs", os.Getenv("FAUCET_ACTIVITY_RPCS"), "Comma-separated RPCs for the eligibility check (empty = the faucet RPC + "+defaultArbSepoliaRPC+")")
+	hourCapFlag         = flag.Float64("faucet.hourcap", envFloat("FAUCET_BUDGET_HOUR", 0), "Max ETH paid out per rolling hour (0 = no cap)")
+	dayCapFlag          = flag.Float64("faucet.daycap", envFloat("FAUCET_BUDGET_DAY", 0), "Max ETH paid out per rolling 24 h (0 = no cap)")
+	stateFileFlag       = flag.String("faucet.statefile", os.Getenv("FAUCET_STATE_FILE"), "JSON file that keeps rate limits and payouts across restarts (empty = memory only)")
+	denylistFlag        = flag.String("faucet.denylist", os.Getenv("FAUCET_DENYLIST_FILE"), "File with denied recipient addresses, one per line")
+	trustedProxiesFlag  = flag.String("proxy.trusted", os.Getenv("FAUCET_TRUSTED_PROXIES"), "CIDRs of reverse proxies whose X-Forwarded-For is read (empty = loopback + private ranges)")
+	cloudflareFlag      = flag.String("proxy.cloudflare", os.Getenv("FAUCET_CLOUDFLARE_CIDRS"), "CIDRs whose CF-Connecting-IP is trusted (empty = Cloudflare's published ranges)")
+	alertWebhookFlag    = flag.String("alert.webhook", os.Getenv("FAUCET_ALERT_WEBHOOK"), "URL that receives budget alerts as JSON {text}")
+	tgChatFlag          = flag.String("alert.telegramchat", os.Getenv("TELEGRAM_CHAT_ID"), "Telegram chat id for alerts (bot token: TELEGRAM_BOT_TOKEN)")
 )
+
+const defaultArbSepoliaRPC = "https://sepolia-rollup.arbitrum.io/rpc"
+
+func envBool(k string, def bool) bool {
+	v := strings.ToLower(strings.TrimSpace(os.Getenv(k)))
+	switch v {
+	case "1", "true", "yes", "on":
+		return true
+	case "0", "false", "no", "off":
+		return false
+	}
+	return def
+}
+
+func envFloat(k string, def float64) float64 {
+	if v, err := strconv.ParseFloat(strings.TrimSpace(os.Getenv(k)), 64); err == nil {
+		return v
+	}
+	return def
+}
 
 func init() {
 	flag.Parse()
@@ -72,6 +106,35 @@ func Execute() {
 	if err := config.SetGullyID(*gullyIDClientFlag, *gullyIDIssuerFlag); err != nil {
 		panic(err)
 	}
+	deny, err := server.LoadDenylist(*denylistFlag)
+	if err != nil {
+		panic(fmt.Errorf("denylist: %w", err))
+	}
+	prot := server.Protection{
+		GullyIDRequired: *gullyIDRequiredFlag,
+		HourCapEth:      *hourCapFlag,
+		DayCapEth:       *dayCapFlag,
+		StateFile:       *stateFileFlag,
+		Deny:            deny,
+		TrustedProxies:  *trustedProxiesFlag,
+		CloudflareCIDRs: *cloudflareFlag,
+		Alert:           server.NewAlerter(os.Getenv("TELEGRAM_BOT_TOKEN"), *tgChatFlag, *alertWebhookFlag),
+	}
+	if *eligibilityFlag {
+		urls := chain.ParseProviders(*activityRPCsFlag)
+		if strings.TrimSpace(*activityRPCsFlag) == "" {
+			urls = append(chain.ParseProviders(*providerFlag), defaultArbSepoliaRPC)
+		}
+		prot.Activity = server.NewActivityChecker(urls)
+	}
+	if err := config.SetProtection(prot); err != nil {
+		panic(err)
+	}
+	log.WithFields(log.Fields{
+		"signin_required": prot.GullyIDRequired, "eligibility": prot.Activity != nil, "hour_cap": prot.HourCapEth,
+		"day_cap": prot.DayCapEth, "state_file": prot.StateFile, "denylist": len(deny),
+		"telegram_alerts": os.Getenv("TELEGRAM_BOT_TOKEN") != "" && *tgChatFlag != "",
+	}).Info("faucet protection")
 	srv := server.NewServer(txBuilder, config)
 
 	// Run server in goroutine

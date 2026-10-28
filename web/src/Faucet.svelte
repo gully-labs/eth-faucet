@@ -64,7 +64,9 @@
   // Sign in with Gully (only when /api/info has gullyid_client): fill the field with the main wallet, but never
   // overwrite an address the visitor typed; clear it again on sign-out only if it is still the filled-in one.
   let gullyFilled = null;
-  function onGullyWallet(address) {
+  let gullyToken = null; // session access token, sent as Authorization: Bearer when the faucet requires sign-in
+  function onGullyWallet(address, user, session) {
+    gullyToken = session?.accessToken || null;
     const current = (input || '').trim();
     if (address) {
       if (!current || current === gullyFilled) input = address;
@@ -386,6 +388,14 @@
       const headers = {
         'Content-Type': 'application/json',
       };
+      if (faucetInfo.signin_required) {
+        if (!gullyToken) {
+          fieldError = 'Sign in with Gully first (button above): one claim per Gully ID a day.';
+          toast({ message: 'Sign in with Gully to claim testnet ETH.', type: 'is-warning' });
+          return;
+        }
+        headers['Authorization'] = 'Bearer ' + gullyToken;
+      }
 
       // Execute hCaptcha verification
       if (hcaptchaLoaded && widgetID !== null) {
@@ -480,7 +490,7 @@
       <div class="copy">
         <span class="badge">Testnet faucet · chain {CHAIN.id}</span>
         <h1 id="h1">Testnet ETH, <em>{faucetInfo.payout}&nbsp;{faucetInfo.symbol}</em> a day</h1>
-        <p class="promise">One claim per address and per IP every 24 hours. <b>Testnet ETH has no value</b>; use it to try the app, deploy contracts and test the bridge.</p>
+        <p class="promise">{#if faucetInfo.signin_required}Sign in with Gully, then one claim per account, address and IP every 24 hours.{:else}One claim per address and per IP every 24 hours.{/if} <b>Testnet ETH has no value</b>; use it to try the app, deploy contracts and test the bridge.</p>
 
         <ol class="stepper" aria-label="Steps">
           <li class:done={step > 1} class:active={step === 1}><span class="n">{#if step > 1}{@html icon('check')}{:else}1{/if}</span><span>Add network</span></li>
@@ -491,7 +501,7 @@
         <div id="hcaptcha" data-size="invisible"></div>
         <form id="claim" class="claim" onsubmit={(e) => { e.preventDefault(); if (!isLoading) handleRequest(); }}>
           {#if faucetInfo.gullyid_client}
-            <GullySignIn clientId={faucetInfo.gullyid_client} issuer={faucetInfo.gullyid_issuer || undefined} onwallet={onGullyWallet} />
+            <GullySignIn clientId={faucetInfo.gullyid_client} issuer={faucetInfo.gullyid_issuer || undefined} required={!!faucetInfo.signin_required} onwallet={onGullyWallet} />
           {/if}
           <label class="lab" for="address">Your address or ENS name</label>
           <div class="field">
