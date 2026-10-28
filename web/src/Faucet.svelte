@@ -105,12 +105,12 @@
     toasts = [...toasts.slice(-3), { id, title, message, type, icon: ic || TOAST_ICON[type] || 'info', ms, link }];
     setTimeout(() => dismiss(id), ms);
   }
-  function toast({ message, type }) {
+  function toast({ message, type, amount, tier }) {
     const m = /Txhash:\s*(0x[0-9a-fA-F]{64})/.exec(message || '');
     if (type === 'is-success' && m) {
       paid = true;
       step = 3;
-      return notify({ title: `${faucetInfo.payout} ${faucetInfo.symbol} sent`, message: 'Transaction ' + m[1].slice(0, 10) + '… is on its way.', type, icon: 'droplet', ms: 12000, link: { href: `${CHAIN.explorer}/tx/${m[1]}`, text: 'View on explorer' } });
+      return notify({ title: `${amount || faucetInfo.payout} ${faucetInfo.symbol} sent${tier === 'developer' ? ' (developer tier)' : ''}`, message: 'Transaction ' + m[1].slice(0, 10) + '… is on its way.', type, icon: 'droplet', ms: 12000, link: { href: `${CHAIN.explorer}/tx/${m[1]}`, text: 'View on explorer' } });
     }
     if (type === 'is-danger' && /rate limit|too many|wait|already|minutes|hour/i.test(message || '')) {
       return notify({ title: 'Rate limited', message, type: 'is-warning', icon: 'clock' });
@@ -440,7 +440,7 @@
 
       if (res.ok) {
         const message = data?.msg || 'Transaction successful';
-        toast({ message, type: 'is-success' });
+        toast({ message, type: 'is-success', amount: data?.amount, tier: data?.tier });
         const ethTx = (/Txhash:\s*(0x[0-9a-fA-F]{64})/.exec(message) || [])[1] || null;
         claimResult = { ethTx, token: data?.token || null };
         if (data?.token?.sent) {
@@ -629,6 +629,7 @@
         <p class="lab cy"><span class="ic">{@html icon('arrows')}</span>Need more than {faucetInfo.payout} {faucetInfo.symbol}?</p>
         <h2>Bridge from Arbitrum Sepolia</h2>
         <p class="muted">Deposit Arbitrum Sepolia ETH through the testnet bridge, or read how the testnet works in the docs.</p>
+        {#if faucetInfo.dev_tier}<p class="muted" data-testid="dev-tier">Building on GullyChain? Verified developers get <b>{faucetInfo.dev_tier.payout} {faucetInfo.symbol}</b> every {faucetInfo.dev_tier.window_hours} h with the same Gully ID sign-in. Email <a href="mailto:team@gullylabs.xyz?subject=Faucet%20developer%20tier">team@gullylabs.xyz</a> with your Gully ID and what you are building.</p>{/if}
         <div class="ctas">
           <a class="btn ter sm" href={LINKS[1].href} target="_blank" rel="noopener noreferrer"><span class="ic">{@html icon('arrows')}</span>Bridge<span class="ic ar">{@html icon('arrow')}</span></a>
           <a class="btn ter sm" href={LINKS[2].href} target="_blank" rel="noopener noreferrer"><span class="ic">{@html icon('book')}</span>Docs<span class="ic ar">{@html icon('arrow')}</span></a>

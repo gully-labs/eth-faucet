@@ -15,10 +15,13 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"github.com/urfave/negroni/v3"
+
+	"github.com/chainflag/eth-faucet/internal/chain"
 )
 
-// Guard is the claim gate, in order: denylist, Gully ID sign-in, the 24 h windows (address, client IP, Gully ID
-// account), the global hourly/daily budget, then recipient eligibility. Windows and payouts live in a Store that is
+// Guard is the claim gate, in order: denylist, Gully ID sign-in, the developer tier match, the 24 h windows (address,
+// client IP, Gully ID account; developer tier: account and address on its own shorter window), the global hourly/daily
+// budget (plus the developer budget), then recipient eligibility (not for the developer tier). Windows and payouts live in a Store that is
 // persisted to disk, so restarts do not reset them. A send that fails rolls its reservation back.
 type Guard struct {
 	store    *Store
@@ -31,6 +34,10 @@ type Guard struct {
 	activity ActivityChecker // nil = no eligibility check
 	hourCap  *big.Int        // nil = no cap
 	dayCap   *big.Int
+	dev      *DevTier        // nil = no developer tier
+	devGID   GullyIDVerifier // verifies an optional session for the developer tier when sign-in is not required
+	devPay   *big.Int
+	devCap   *big.Int // nil = no developer budget of its own
 	alert    Alerter
 	lastWarn int64 // unix seconds of the last budget alert
 	seq      int64
@@ -46,6 +53,8 @@ type GuardOptions struct {
 	HourCap  *big.Int
 	DayCap   *big.Int
 	Alert    Alerter
+	DevTier  *DevTier
+	DevGID   GullyIDVerifier // used for the developer tier when GullyID is nil (sign-in optional)
 }
 
 func NewGuard(store *Store, ip *IPResolver, o GuardOptions) *Guard {
@@ -55,8 +64,18 @@ func NewGuard(store *Store, ip *IPResolver, o GuardOptions) *Guard {
 	if o.Deny == nil {
 		o.Deny = map[string]bool{}
 	}
-	return &Guard{store: store, ip: ip, window: o.Window, payout: o.Payout, symbol: o.Symbol, deny: o.Deny, gid: o.GullyID,
+	g := &Guard{store: store, ip: ip, window: o.Window, payout: o.Payout, symbol: o.Symbol, deny: o.Deny, gid: o.GullyID,
 		activity: o.Activity, hourCap: o.HourCap, dayCap: o.DayCap, alert: o.Alert}
+	if o.DevTier.enabled() {
+		g.dev, g.devGID, g.devPay = o.DevTier, o.DevGID, chain.EtherToWei(o.DevTier.Payout)
+		if g.devGID == nil {
+			g.devGID = o.GullyID
+		}
+		if o.DevTier.DayCap > 0 {
+			g.devCap = chain.EtherToWei(o.DevTier.DayCap)
+		}
+	}
+	return g
 }
 
 // LoadDenylist reads one address per line ('#' comments allowed). A missing file is an empty list.
@@ -112,14 +131,14 @@ func (g *Guard) fail(w http.ResponseWriter, status int, msg string) {
 	renderJSON(w, claimResponse{Message: msg}, status)
 }
 
-// budgetLocked returns a refusal message if one more payout would break a cap.
-func (g *Guard) budgetLocked() string {
+// budgetLocked returns a refusal message if one more payout of `amount` would break a cap (dev: also the developer budget).
+func (g *Guard) budgetLocked(amount *big.Int, dev bool) string {
 	check := func(capv *big.Int, window time.Duration, label string) string {
 		if capv == nil || capv.Sign() <= 0 {
 			return ""
 		}
 		spent := g.store.spentLocked(window)
-		if new(big.Int).Add(spent, g.payout).Cmp(capv) <= 0 {
+		if new(big.Int).Add(spent, amount).Cmp(capv) <= 0 {
 			return ""
 		}
 		free := g.store.oldestInLocked(window).Add(window).Sub(g.store.now())
@@ -133,7 +152,18 @@ func (g *Guard) budgetLocked() string {
 	if m := check(g.hourCap, time.Hour, "hourly"); m != "" {
 		return m
 	}
-	return check(g.dayCap, 24*time.Hour, "daily")
+	if m := check(g.dayCap, 24*time.Hour, "daily"); m != "" {
+		return m
+	}
+	if dev && g.devCap != nil && new(big.Int).Add(g.store.devSpentLocked(24*time.Hour), amount).Cmp(g.devCap) > 0 {
+		now := g.store.now().Unix()
+		if now-atomic.LoadInt64(&g.lastWarn) > 3600 {
+			atomic.StoreInt64(&g.lastWarn, now)
+			g.alert.Alert(fmt.Sprintf("Gully faucet: developer tier daily budget of %s %s reached.", weiToEth(g.devCap), g.symbol))
+		}
+		return "The developer tier has handed out its daily budget. Please try again later, or email team@gullylabs.xyz."
+	}
+	return ""
 }
 
 func (g *Guard) limitedLocked(keys map[string]string) string {
@@ -145,6 +175,9 @@ func (g *Guard) limitedLocked(keys map[string]string) string {
 		if d := g.store.remainingLocked(key); d > 0 {
 			switch k {
 			case "gid":
+				if strings.HasPrefix(key, "dev:") {
+					return fmt.Sprintf("Developer tier: your Gully ID account already claimed. Next claim in %s.", humanWait(d))
+				}
 				return fmt.Sprintf("Your Gully ID account already claimed today. Next claim in %s.", humanWait(d))
 			case "addr":
 				return fmt.Sprintf("This address already received testnet ETH today. Next claim in %s.", humanWait(d))
@@ -195,9 +228,25 @@ func (g *Guard) ServeHTTP(w http.ResponseWriter, r *http.Request, next http.Hand
 		}
 		keys["gid"] = "gid:" + user.Sub
 		logf = logf.WithField("gid", user.Sub)
+	} else if g.dev != nil && g.devGID != nil && bearer(r) != "" {
+		// sign-in is optional here: a valid session can only upgrade the claim to the developer tier
+		ctx, cancel := context.WithTimeout(r.Context(), 7*time.Second)
+		if u, err := g.devGID.Verify(ctx, bearer(r)); err == nil {
+			user = u
+		}
+		cancel()
 	}
 
-	if g.window > 0 {
+	payout, window, tier := g.payout, g.window, "standard"
+	if ok, why := g.dev.Match(user, addr); ok {
+		payout, window, tier = g.devPay, g.dev.Window, "developer"
+		// own keys, no IP key: offices and CI share IPs, and the account is known
+		keys = map[string]string{"gid": "dev:gid:" + user.Sub, "addr": "dev:addr:" + addr}
+		logf = logf.WithFields(log.Fields{"gid": user.Sub, "tier": "developer", "why": why})
+	}
+	dev := tier == "developer"
+
+	if window > 0 {
 		g.store.mu.Lock()
 		msg := g.limitedLocked(keys)
 		g.store.mu.Unlock()
@@ -208,7 +257,7 @@ func (g *Guard) ServeHTTP(w http.ResponseWriter, r *http.Request, next http.Hand
 		}
 	}
 	g.store.mu.Lock()
-	msg := g.budgetLocked()
+	msg := g.budgetLocked(payout, dev)
 	g.store.mu.Unlock()
 	if msg != "" {
 		logf.Warn("claim refused: budget")
@@ -216,7 +265,7 @@ func (g *Guard) ServeHTTP(w http.ResponseWriter, r *http.Request, next http.Hand
 		return
 	}
 
-	if g.activity != nil && !(user != nil && user.SmartAccounts()[addr]) {
+	if g.activity != nil && !dev && !(user != nil && user.SmartAccounts()[addr]) {
 		ctx, cancel := context.WithTimeout(r.Context(), 8*time.Second)
 		ok, err := g.activity.HasActivity(ctx, address)
 		cancel()
@@ -234,30 +283,34 @@ func (g *Guard) ServeHTTP(w http.ResponseWriter, r *http.Request, next http.Hand
 
 	// reserve atomically (re-check: another request may have won the race while we were checking)
 	g.store.mu.Lock()
-	if g.window > 0 {
+	if window > 0 {
 		if msg := g.limitedLocked(keys); msg != "" {
 			g.store.mu.Unlock()
 			g.fail(w, http.StatusTooManyRequests, msg)
 			return
 		}
 	}
-	if msg := g.budgetLocked(); msg != "" {
+	if msg := g.budgetLocked(payout, dev); msg != "" {
 		g.store.mu.Unlock()
 		g.fail(w, http.StatusServiceUnavailable, msg)
 		return
 	}
 	ref := strconv.FormatInt(atomic.AddInt64(&g.seq, 1), 10) + "-" + strconv.FormatInt(time.Now().UnixNano(), 36)
-	exp := g.store.now().Add(g.window).Unix()
-	if g.window > 0 {
+	exp := g.store.now().Add(window).Unix()
+	if window > 0 {
 		for _, k := range keys {
 			g.store.Limits[k] = exp
 		}
 	}
-	g.store.Payouts = append(g.store.Payouts, payoutRecord{At: g.store.now().Unix(), Wei: g.payout.String(), Ref: ref})
+	rec := payoutRecord{At: g.store.now().Unix(), Wei: payout.String(), Ref: ref}
+	if dev {
+		rec.Tier = "dev"
+	}
+	g.store.Payouts = append(g.store.Payouts, rec)
 	g.store.saveLocked()
 	g.store.mu.Unlock()
 
-	next.ServeHTTP(w, r)
+	next.ServeHTTP(w, r.WithContext(withClaimTier(r.Context(), tier, payout)))
 	status := http.StatusOK
 	if nw, ok := w.(negroni.ResponseWriter); ok {
 		status = nw.Status()
