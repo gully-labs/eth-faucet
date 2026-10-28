@@ -19,6 +19,7 @@ type Server struct {
 	chain.TxBuilder
 	cfg    *Config
 	server *http.Server
+	store  *Store // shared with the guard (windows, ETH and token payout logs)
 }
 
 func NewServer(builder chain.TxBuilder, cfg *Config) *Server {
@@ -46,7 +47,8 @@ func (s *Server) setupRouter() *http.ServeMux {
 	if !p.GullyIDRequired {
 		gid = nil
 	}
-	guard := NewGuard(NewStore(p.StateFile), ipr, GuardOptions{
+	s.store = NewStore(p.StateFile)
+	guard := NewGuard(s.store, ipr, GuardOptions{
 		Window: time.Duration(s.cfg.interval) * time.Minute, Payout: chain.EtherToWei(s.cfg.payout), Symbol: s.cfg.symbol,
 		Deny: p.Deny, GullyID: gid, Activity: p.Activity, HourCap: ethCap(p.HourCapEth), DayCap: ethCap(p.DayCapEth), Alert: p.Alert,
 	})
@@ -111,6 +113,11 @@ func (s *Server) handleClaim() http.HandlerFunc {
 			"address": address,
 		}).Info("Transaction sent successfully")
 		resp := claimResponse{Message: fmt.Sprintf("Txhash: %s", txHash)}
+		if s.cfg.token != nil {
+			tctx, tcancel := context.WithTimeout(r.Context(), 6*time.Second)
+			resp.Token = s.dripToken(tctx, address)
+			tcancel()
+		}
 		renderJSON(w, resp, http.StatusOK)
 	}
 }
@@ -132,6 +139,7 @@ func (s *Server) handleInfo() http.HandlerFunc {
 			SignInRequired:  s.cfg.protection.GullyIDRequired,
 			Eligibility:     s.cfg.protection.Activity != nil,
 			WindowHours:     float64(s.cfg.interval) / 60,
+			Token:           s.cfg.tokenInfo(),
 		}, http.StatusOK)
 	}
 }

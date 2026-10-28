@@ -14,6 +14,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	log "github.com/sirupsen/logrus"
 
@@ -57,6 +58,13 @@ var (
 	cloudflareFlag      = flag.String("proxy.cloudflare", os.Getenv("FAUCET_CLOUDFLARE_CIDRS"), "CIDRs whose CF-Connecting-IP is trusted (empty = Cloudflare's published ranges)")
 	alertWebhookFlag    = flag.String("alert.webhook", os.Getenv("FAUCET_ALERT_WEBHOOK"), "URL that receives budget alerts as JSON {text}")
 	tgChatFlag          = flag.String("alert.telegramchat", os.Getenv("TELEGRAM_CHAT_ID"), "Telegram chat id for alerts (bot token: TELEGRAM_BOT_TOKEN)")
+
+	// token drip (2026-10-28): a small test-stablecoin payout (glUSD) with every successful ETH claim
+	tokenFlag         = flag.String("token.address", os.Getenv("FAUCET_TOKEN_ADDRESS"), "ERC-20 sent with every successful claim (empty = ETH only)")
+	tokenSymbolFlag   = flag.String("token.symbol", envString("FAUCET_TOKEN_SYMBOL", "glUSD"), "Symbol of -token.address shown on the page")
+	tokenAmountFlag   = flag.Float64("token.amount", envFloat("FAUCET_TOKEN_AMOUNT", 1), "Tokens per claim (whole units)")
+	tokenDayCapFlag   = flag.Float64("token.daycap", envFloat("FAUCET_TOKEN_BUDGET_DAY", 0), "Max tokens per rolling 24 h (required with -token.address)")
+	tokenTotalCapFlag = flag.Float64("token.totalcap", envFloat("FAUCET_TOKEN_BUDGET_TOTAL", 0), "Max tokens over the faucet's lifetime, kept in the state file (0 = no lifetime cap)")
 )
 
 const defaultArbSepoliaRPC = "https://sepolia-rollup.arbitrum.io/rpc"
@@ -68,6 +76,13 @@ func envBool(k string, def bool) bool {
 		return true
 	case "0", "false", "no", "off":
 		return false
+	}
+	return def
+}
+
+func envString(k, def string) string {
+	if v := strings.TrimSpace(os.Getenv(k)); v != "" {
+		return v
 	}
 	return def
 }
@@ -135,6 +150,15 @@ func Execute() {
 		"day_cap": prot.DayCapEth, "state_file": prot.StateFile, "denylist": len(deny),
 		"telegram_alerts": os.Getenv("TELEGRAM_BOT_TOKEN") != "" && *tgChatFlag != "",
 	}).Info("faucet protection")
+	if strings.TrimSpace(*tokenFlag) != "" {
+		drip, err := newTokenDrip(txBuilder)
+		if err != nil {
+			panic(err)
+		}
+		config.SetTokenDrip(drip)
+		log.WithFields(log.Fields{"token": drip.Token.Hex(), "symbol": drip.Symbol, "amount": drip.AmountText,
+			"day_cap": *tokenDayCapFlag, "total_cap": *tokenTotalCapFlag}).Info("token drip on")
+	}
 	srv := server.NewServer(txBuilder, config)
 
 	// Run server in goroutine
@@ -178,4 +202,21 @@ func getPrivateKeyFromFlags() (*ecdsa.PrivateKey, error) {
 	}
 
 	return chain.DecryptKeyfile(keyfile, strings.TrimRight(string(password), "\r\n"))
+}
+
+func newTokenDrip(b chain.TxBuilder) (*server.TokenDrip, error) {
+	ts, ok := b.(chain.TokenSender)
+	if !ok {
+		return nil, errors.New("token drip: this wallet backend cannot send tokens")
+	}
+	if !common.IsHexAddress(*tokenFlag) {
+		return nil, fmt.Errorf("token drip: %q is not an address", *tokenFlag)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	dec, err := ts.TokenDecimals(ctx, common.HexToAddress(*tokenFlag))
+	if err != nil {
+		return nil, fmt.Errorf("token drip: read decimals: %w", err)
+	}
+	return server.NewTokenDrip(*tokenFlag, *tokenSymbolFlag, dec, *tokenAmountFlag, *tokenDayCapFlag, *tokenTotalCapFlag)
 }

@@ -19,6 +19,9 @@ type Store struct {
 	now     func() time.Time
 	Limits  map[string]int64 `json:"limits"`  // key -> unix expiry
 	Payouts []payoutRecord   `json:"payouts"` // last 24 h
+	// token drip (glUSD): its own payout log (last 24 h) and the lifetime total, both in token base units
+	TokenPayouts []payoutRecord `json:"token_payouts,omitempty"`
+	TokenTotal   string         `json:"token_total,omitempty"`
 }
 
 type payoutRecord struct {
@@ -64,6 +67,13 @@ func (s *Store) pruneLocked() {
 		}
 	}
 	s.Payouts = keep
+	tkeep := s.TokenPayouts[:0]
+	for _, p := range s.TokenPayouts {
+		if p.At > now-86400 {
+			tkeep = append(tkeep, p)
+		}
+	}
+	s.TokenPayouts = tkeep
 }
 
 func (s *Store) saveLocked() {
@@ -103,9 +113,25 @@ func (s *Store) remainingLocked(key string) time.Duration {
 
 // spentLocked sums the payouts in the last `window`.
 func (s *Store) spentLocked(window time.Duration) *big.Int {
-	from := s.now().Add(-window).Unix()
+	return sumSince(s.Payouts, s.now().Add(-window).Unix())
+}
+
+// tokenSpentLocked sums the token payouts in the last `window`.
+func (s *Store) tokenSpentLocked(window time.Duration) *big.Int {
+	return sumSince(s.TokenPayouts, s.now().Add(-window).Unix())
+}
+
+// tokenTotalLocked is the lifetime token total (base units).
+func (s *Store) tokenTotalLocked() *big.Int {
+	if v, ok := new(big.Int).SetString(s.TokenTotal, 10); ok {
+		return v
+	}
+	return new(big.Int)
+}
+
+func sumSince(records []payoutRecord, from int64) *big.Int {
 	sum := new(big.Int)
-	for _, p := range s.Payouts {
+	for _, p := range records {
 		if p.At > from {
 			if v, ok := new(big.Int).SetString(p.Wei, 10); ok {
 				sum.Add(sum, v)
