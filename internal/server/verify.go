@@ -22,13 +22,29 @@ import (
 
 // GullyUser is the part of the Gully ID profile the faucet uses.
 type GullyUser struct {
-	Sub     string `json:"sub"`
+	Sub     string  `json:"sub"`
 	Client  *string `json:"-"`
 	Wallets []struct {
 		ChainID *int64 `json:"chainId"`
 		Address string `json:"address"`
 		Kind    string `json:"kind"`
 	} `json:"wallets"`
+	// Optional developer markers (only read when the developer tier trusts the profile, -devtier.profile)
+	Developer *bool    `json:"developer,omitempty"`
+	Roles     []string `json:"roles,omitempty"`
+}
+
+// IsDeveloper: the profile says "developer": true, or lists "developer" in its roles.
+func (u *GullyUser) IsDeveloper() bool {
+	if u.Developer != nil && *u.Developer {
+		return true
+	}
+	for _, r := range u.Roles {
+		if strings.EqualFold(strings.TrimSpace(r), "developer") {
+			return true
+		}
+	}
+	return false
 }
 
 // SmartAccounts returns the user's Gully smart accounts (kernel), lowercased.

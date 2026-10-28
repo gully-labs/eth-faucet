@@ -15,6 +15,7 @@ type Config struct {
 	gullyIDIssuer   string
 	protection      Protection
 	token           *TokenDrip // nil = ETH only (see SetTokenDrip)
+	devTier         *DevTier   // nil = no developer tier (see SetDevTier)
 }
 
 func NewConfig(network, symbol string, httpPort, interval, proxyCount int, payout float64, hcaptchaSiteKey, hcaptchaSecret string) *Config {

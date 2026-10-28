@@ -18,21 +18,24 @@ type claimRequest struct {
 
 type claimResponse struct {
 	Message string       `json:"msg"`
-	Token   *tokenResult `json:"token,omitempty"` // the glUSD drip of a successful claim
+	Token   *tokenResult `json:"token,omitempty"`  // the glUSD drip of a successful claim
+	Tier    string       `json:"tier,omitempty"`   // "standard" or "developer" (successful claims)
+	Amount  string       `json:"amount,omitempty"` // ETH sent (successful claims)
 }
 
 type infoResponse struct {
-	Account         string `json:"account"`
-	Network         string `json:"network"`
-	Payout          string `json:"payout"`
-	Symbol          string `json:"symbol"`
-	HcaptchaSiteKey string `json:"hcaptcha_sitekey,omitempty"`
-	GullyIDClient   string `json:"gullyid_client,omitempty"`
-	GullyIDIssuer   string `json:"gullyid_issuer,omitempty"`
-	SignInRequired  bool    `json:"signin_required"`
-	Eligibility     bool    `json:"eligibility_check"`
-	WindowHours     float64    `json:"window_hours"`
-	Token           *tokenInfo `json:"token,omitempty"`
+	Account         string       `json:"account"`
+	Network         string       `json:"network"`
+	Payout          string       `json:"payout"`
+	Symbol          string       `json:"symbol"`
+	HcaptchaSiteKey string       `json:"hcaptcha_sitekey,omitempty"`
+	GullyIDClient   string       `json:"gullyid_client,omitempty"`
+	GullyIDIssuer   string       `json:"gullyid_issuer,omitempty"`
+	SignInRequired  bool         `json:"signin_required"`
+	Eligibility     bool         `json:"eligibility_check"`
+	WindowHours     float64      `json:"window_hours"`
+	Token           *tokenInfo   `json:"token,omitempty"`
+	DevTier         *devTierInfo `json:"dev_tier,omitempty"` // the developer tier's drip and window, when on
 }
 
 type malformedRequest struct {

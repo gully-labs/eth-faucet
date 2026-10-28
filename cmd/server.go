@@ -65,6 +65,15 @@ var (
 	tokenAmountFlag   = flag.Float64("token.amount", envFloat("FAUCET_TOKEN_AMOUNT", 1), "Tokens per claim (whole units)")
 	tokenDayCapFlag   = flag.Float64("token.daycap", envFloat("FAUCET_TOKEN_BUDGET_DAY", 0), "Max tokens per rolling 24 h (required with -token.address)")
 	tokenTotalCapFlag = flag.Float64("token.totalcap", envFloat("FAUCET_TOKEN_BUDGET_TOTAL", 0), "Max tokens over the faucet's lifetime, kept in the state file (0 = no lifetime cap)")
+
+	// developer tier (2026-10-28): a larger drip and a shorter cooldown for signed-in, verified developers
+	devAmountFlag  = flag.Float64("devtier.amount", envFloat("FAUCET_DEV_AMOUNT", 0), "ETH per developer-tier claim (0 = tier off)")
+	devMinutesFlag = flag.Int("devtier.minutes", int(envFloat("FAUCET_DEV_MINUTES", 360)), "Minutes between developer-tier claims per Gully ID account and per address")
+	devDayCapFlag  = flag.Float64("devtier.daycap", envFloat("FAUCET_DEV_BUDGET_DAY", 0), "Max ETH per rolling 24 h across all developer-tier claims (0 = only the global caps)")
+	devSubsFlag    = flag.String("devtier.subs", os.Getenv("FAUCET_DEV_SUBS"), "Comma-separated Gully ID subjects (sub) of verified developers")
+	devWalletsFlag = flag.String("devtier.wallets", os.Getenv("FAUCET_DEV_WALLETS"), "Comma-separated addresses: a Gully ID wallet of the user, or the recipient, on this list gets the tier")
+	devFileFlag    = flag.String("devtier.file", os.Getenv("FAUCET_DEV_ALLOWLIST_FILE"), "File with one Gully ID sub or 0x address per line ('#' comments)")
+	devProfileFlag = flag.Bool("devtier.profile", envBool("FAUCET_DEV_TRUST_PROFILE", false), "Also give the tier to users whose Gully ID profile says developer (\"developer\": true or roles)")
 )
 
 const defaultArbSepoliaRPC = "https://sepolia-rollup.arbitrum.io/rpc"
@@ -144,6 +153,20 @@ func Execute() {
 	}
 	if err := config.SetProtection(prot); err != nil {
 		panic(err)
+	}
+	if *devAmountFlag > 0 {
+		dt := &server.DevTier{Payout: *devAmountFlag, Window: time.Duration(*devMinutesFlag) * time.Minute, DayCap: *devDayCapFlag,
+			Subs: map[string]bool{}, Wallets: map[string]bool{}, TrustProfile: *devProfileFlag}
+		server.ParseDevList(*devSubsFlag, dt.Subs, map[string]bool{})
+		server.ParseDevList(*devWalletsFlag, map[string]bool{}, dt.Wallets)
+		if err := server.LoadDevAllowlist(*devFileFlag, dt.Subs, dt.Wallets); err != nil {
+			panic(fmt.Errorf("developer allowlist: %w", err))
+		}
+		if err := config.SetDevTier(dt); err != nil {
+			panic(err)
+		}
+		log.WithFields(log.Fields{"amount": dt.Payout, "minutes": *devMinutesFlag, "day_cap": dt.DayCap, "subs": len(dt.Subs),
+			"wallets": len(dt.Wallets), "trust_profile": dt.TrustProfile}).Info("developer tier on")
 	}
 	log.WithFields(log.Fields{
 		"signin_required": prot.GullyIDRequired, "eligibility": prot.Activity != nil, "hour_cap": prot.HourCapEth,

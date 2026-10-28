@@ -144,6 +144,36 @@ sent drips count against the budget; the lifetime total is kept in the state fil
 `/api/claim` adds `"token": {"symbol","amount","sent","tx","msg"}` to a successful response; `/api/info` adds
 `"token": {"address","symbol","decimals","amount"}`.
 
+**Developer tier (Gully fork)**
+
+With `-devtier.amount` above 0, signed-in Gully ID users who are verified developers get a larger drip on a shorter
+cooldown, so teams building on Gully Chain can deploy and test without asking for ETH by hand. hCaptcha and the Gully ID
+sign-in stay mandatory for the tier (when `-gullyid.required` is off, a valid session only upgrades a claim; without one
+the claim is a normal one). A user qualifies when **any** of these holds:
+
+- their Gully ID subject (`sub`) is on the allowlist (`-devtier.subs` or the allowlist file),
+- one of their Gully ID wallets, or the recipient address, is on the wallet allowlist (`-devtier.wallets` or the file),
+- `-devtier.profile` is on and their Gully ID profile says `"developer": true` or lists `"developer"` in `"roles"`.
+
+A developer claim: pays `-devtier.amount`; is limited per Gully ID account and per recipient address by
+`-devtier.minutes` (its own keys, no per-IP window, since offices and CI share an IP); skips the fresh-address check
+(developers deploy from new keys); counts toward the global hourly/daily ETH budget and the tier's own daily budget. The
+denylist still applies. The startup log line `developer tier on` shows the counts, never the lists.
+
+| Flag / env | Description | Default |
+|---|---|---|
+| `-devtier.amount` / `FAUCET_DEV_AMOUNT` | ETH per developer claim | 0 = tier off |
+| `-devtier.minutes` / `FAUCET_DEV_MINUTES` | minutes between developer claims per account and per address (must not exceed `-faucet.minutes`) | 360 |
+| `-devtier.daycap` / `FAUCET_DEV_BUDGET_DAY` | max ETH per rolling 24 h across all developer claims | 0 = only the global caps |
+| `-devtier.subs` / `FAUCET_DEV_SUBS` | comma-separated Gully ID subjects | empty |
+| `-devtier.wallets` / `FAUCET_DEV_WALLETS` | comma-separated 0x addresses | empty |
+| `-devtier.file` / `FAUCET_DEV_ALLOWLIST_FILE` | one sub or 0x address per line, `#` comments (read at start) | empty |
+| `-devtier.profile` / `FAUCET_DEV_TRUST_PROFILE` | trust the Gully ID profile's developer flag | false |
+
+The tier needs `-gullyid.client` and at least one way to qualify, or the faucet refuses to start. A successful
+`/api/claim` response adds `"tier": "standard"|"developer"` and `"amount"` (ETH sent); `/api/info` adds
+`"dev_tier": {"payout","window_hours"}` when the tier is on, and the page then tells developers how to get it.
+
 ### Docker deployment
 
 ```bash

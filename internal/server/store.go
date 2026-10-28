@@ -28,6 +28,8 @@ type payoutRecord struct {
 	At  int64  `json:"t"`
 	Wei string `json:"wei"`
 	Ref string `json:"ref"` // reservation id, so a failed send can be rolled back
+	// Tier is "dev" for developer-tier payouts (counted against the developer daily budget), empty otherwise
+	Tier string `json:"tier,omitempty"`
 }
 
 func NewStore(path string) *Store {
@@ -114,6 +116,20 @@ func (s *Store) remainingLocked(key string) time.Duration {
 // spentLocked sums the payouts in the last `window`.
 func (s *Store) spentLocked(window time.Duration) *big.Int {
 	return sumSince(s.Payouts, s.now().Add(-window).Unix())
+}
+
+// devSpentLocked sums the developer-tier payouts in the last `window`.
+func (s *Store) devSpentLocked(window time.Duration) *big.Int {
+	from := s.now().Add(-window).Unix()
+	sum := new(big.Int)
+	for _, p := range s.Payouts {
+		if p.Tier == "dev" && p.At > from {
+			if v, ok := new(big.Int).SetString(p.Wei, 10); ok {
+				sum.Add(sum, v)
+			}
+		}
+	}
+	return sum
 }
 
 // tokenSpentLocked sums the token payouts in the last `window`.
