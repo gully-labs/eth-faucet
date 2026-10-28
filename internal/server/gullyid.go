@@ -8,7 +8,7 @@ import (
 )
 
 // DefaultGullyIDIssuer is the Gully ID server the page loads its browser SDK from (`<issuer>/sdk.js`).
-const DefaultGullyIDIssuer = "https://id.gullychain.xyz"
+const DefaultGullyIDIssuer = "https://gullyid.xyz"
 
 var gullyIDClientRe = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{0,63}$`)
 

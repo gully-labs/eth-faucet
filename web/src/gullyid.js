@@ -3,7 +3,7 @@
 // never loads a third script while the flag is off. Any failure (blocked, offline, SDK not deployed yet) rejects and
 // the caller hides the button; the faucet keeps working as before.
 
-export const DEFAULT_GULLY_ID_ISSUER = 'https://id.gullychain.xyz';
+export const DEFAULT_GULLY_ID_ISSUER = 'https://gullyid.xyz';
 
 let pending = null;
 
