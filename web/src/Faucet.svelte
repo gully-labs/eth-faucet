@@ -534,6 +534,7 @@
           </div>
           {#if fieldError}<p id="address-err" class="ferr">{fieldError}</p>{/if}
           <p class="hint">Serving from <button type="button" class="addr mono" onclick={() => copyText(faucetInfo.account, 'Faucet address')} title="Copy the faucet address">{faucetInfo.account}</button>{#if faucetInfo.hcaptcha_sitekey} · protected by hCaptcha{/if}</p>
+          {#if faucetInfo.eligibility_check}<p class="hint">Send it to your Gully wallet, or to an address with at least one transaction on Gully Chain or Arbitrum Sepolia. Brand-new empty addresses are refused (bots farm those).</p>{/if}
         </form>
 
         <div class="ctas">
