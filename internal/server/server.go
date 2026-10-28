@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"math/big"
 	"net/http"
 	"strconv"
 	"time"
@@ -30,9 +31,28 @@ func NewServer(builder chain.TxBuilder, cfg *Config) *Server {
 func (s *Server) setupRouter() *http.ServeMux {
 	router := http.NewServeMux()
 	router.Handle("/", http.FileServer(web.Dist()))
-	limiter := NewLimiter(s.cfg.proxyCount, time.Duration(s.cfg.interval)*time.Minute)
+	p := s.cfg.protection
+	ipr, err := NewIPResolver(p.TrustedProxies, p.CloudflareCIDRs)
+	if err != nil {
+		log.Fatalf("bad proxy config: %v", err)
+	}
+	ethCap := func(v float64) *big.Int {
+		if v <= 0 {
+			return nil
+		}
+		return chain.EtherToWei(v)
+	}
+	gid := p.GullyID
+	if !p.GullyIDRequired {
+		gid = nil
+	}
+	guard := NewGuard(NewStore(p.StateFile), ipr, GuardOptions{
+		Window: time.Duration(s.cfg.interval) * time.Minute, Payout: chain.EtherToWei(s.cfg.payout), Symbol: s.cfg.symbol,
+		Deny: p.Deny, GullyID: gid, Activity: p.Activity, HourCap: ethCap(p.HourCapEth), DayCap: ethCap(p.DayCapEth), Alert: p.Alert,
+	})
 	hcaptcha := NewCaptcha(s.cfg.hcaptchaSiteKey, s.cfg.hcaptchaSecret)
-	router.Handle("/api/claim", negroni.New(limiter, hcaptcha, negroni.Wrap(s.handleClaim())))
+	// captcha first: a bot without a captcha token never reaches the Gully ID / RPC checks
+	router.Handle("/api/claim", negroni.New(hcaptcha, guard, negroni.Wrap(s.handleClaim())))
 	router.Handle("/api/info", s.handleInfo())
 
 	return router
@@ -109,6 +129,9 @@ func (s *Server) handleInfo() http.HandlerFunc {
 			HcaptchaSiteKey: s.cfg.hcaptchaSiteKey,
 			GullyIDClient:   s.cfg.gullyIDClient,
 			GullyIDIssuer:   s.cfg.gullyIDIssuer,
+			SignInRequired:  s.cfg.protection.GullyIDRequired,
+			Eligibility:     s.cfg.protection.Activity != nil,
+			WindowHours:     float64(s.cfg.interval) / 60,
 		}, http.StatusOK)
 	}
 }

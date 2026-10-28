@@ -28,6 +28,9 @@ type infoResponse struct {
 	HcaptchaSiteKey string `json:"hcaptcha_sitekey,omitempty"`
 	GullyIDClient   string `json:"gullyid_client,omitempty"`
 	GullyIDIssuer   string `json:"gullyid_issuer,omitempty"`
+	SignInRequired  bool    `json:"signin_required"`
+	Eligibility     bool    `json:"eligibility_check"`
+	WindowHours     float64 `json:"window_hours"`
 }
 
 type malformedRequest struct {
