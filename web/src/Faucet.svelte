@@ -24,6 +24,7 @@
     { name: 'App', href: 'https://app.gullychain.xyz/' },
     { name: 'Bridge', href: 'https://testnet-bridge.gullychain.xyz/' },
     { name: 'Explorer', href: CHAIN.explorer + '/' },
+    { name: 'Sentry', href: 'https://sentry.gullychain.xyz/' },
     { name: 'Docs', href: 'https://docs.gullychain.xyz/' },
     { name: 'Developers', href: 'https://dev.gullychain.xyz/' },
     { name: 'Status', href: 'https://status.gullylabs.xyz/' },
