@@ -228,6 +228,8 @@
   let step = 1;
   let networkAdded = false;
   let paid = false;
+  // the last successful claim: ETH tx + the token drip (glUSD) result, shown under the form
+  let claimResult = null; // { ethTx, token: { symbol, amount, sent, tx, msg } | null }
 
   // ---- add the chain to an injected wallet (EIP-3085)
   let addingChain = false;
@@ -438,6 +440,13 @@
       if (res.ok) {
         const message = data?.msg || 'Transaction successful';
         toast({ message, type: 'is-success' });
+        const ethTx = (/Txhash:\s*(0x[0-9a-fA-F]{64})/.exec(message) || [])[1] || null;
+        claimResult = { ethTx, token: data?.token || null };
+        if (data?.token?.sent) {
+          notify({ title: `${data.token.amount} ${data.token.symbol} sent`, message: 'Test stablecoin ' + data.token.tx.slice(0, 10) + '… is on its way.', type: 'is-success', icon: 'droplet', ms: 12000, link: { href: `${CHAIN.explorer}/tx/${data.token.tx}`, text: 'View on explorer' } });
+        } else if (data?.token?.msg) {
+          notify({ title: `No ${data.token.symbol} this time`, message: data.token.msg, type: 'is-warning' });
+        }
         input = '';
       } else {
         const errorMessage = data?.msg || 'Request failed';
@@ -490,7 +499,7 @@
       <div class="copy">
         <span class="badge">Testnet faucet Â· chain {CHAIN.id}</span>
         <h1 id="h1">Testnet ETH, <em>{faucetInfo.payout}&nbsp;{faucetInfo.symbol}</em> a day</h1>
-        <p class="promise">{#if faucetInfo.signin_required}Sign in with Gully, then one claim per account, address and IP every 24 hours.{:else}One claim per address and per IP every 24 hours.{/if} <b>Testnet ETH has no value</b>; use it to try the app, deploy contracts and test the bridge.</p>
+        <p class="promise">{#if faucetInfo.signin_required}Sign in with Gully, then one claim per account, address and IP every 24 hours.{:else}One claim per address and per IP every 24 hours.{/if} {#if faucetInfo.token}Each claim also sends <b>{faucetInfo.token.amount} {faucetInfo.token.symbol}</b> (test stablecoin) while the daily {faucetInfo.token.symbol} budget lasts, for Gully Pay checkout and swaps. {/if}<b>Testnet ETH has no value</b>; use it to try the app, deploy contracts and test the bridge.</p>
 
         <ol class="stepper" aria-label="Steps">
           <li class:done={step > 1} class:active={step === 1}><span class="n">{#if step > 1}{@html icon('check')}{:else}1{/if}</span><span>Add network</span></li>
@@ -533,6 +542,18 @@
             </button>
           </div>
           {#if fieldError}<p id="address-err" class="ferr">{fieldError}</p>{/if}
+          {#if claimResult}
+            <div class="claim-result" role="status" data-testid="claim-result">
+              <p><span class="ic ok">{@html icon('check')}</span>{faucetInfo.payout} {faucetInfo.symbol} sent{#if claimResult.ethTx} · <a class="mono" href={`${CHAIN.explorer}/tx/${claimResult.ethTx}`} target="_blank" rel="noopener noreferrer">{short(claimResult.ethTx)}</a>{/if}</p>
+              {#if claimResult.token}
+                {#if claimResult.token.sent}
+                  <p data-testid="token-sent"><span class="ic ok">{@html icon('check')}</span>{claimResult.token.amount} {claimResult.token.symbol} sent · <a class="mono" href={`${CHAIN.explorer}/tx/${claimResult.token.tx}`} target="_blank" rel="noopener noreferrer">{short(claimResult.token.tx)}</a></p>
+                {:else}
+                  <p data-testid="token-skipped" class="muted"><span class="ic">{@html icon('info')}</span>{claimResult.token.msg}</p>
+                {/if}
+              {/if}
+            </div>
+          {/if}
           <p class="hint">Serving from <button type="button" class="addr mono" onclick={() => copyText(faucetInfo.account, 'Faucet address')} title="Copy the faucet address">{faucetInfo.account}</button>{#if faucetInfo.hcaptcha_sitekey} Â· protected by hCaptcha{/if}</p>
           {#if faucetInfo.eligibility_check}<p class="hint">Send it to your Gully wallet, or to an address with at least one transaction on Gully Chain or Arbitrum Sepolia. Brand-new empty addresses are refused (bots farm those).</p>{/if}
         </form>
@@ -822,6 +843,13 @@
   .glb img { height: 32px; width: auto; }
   .glb:focus-visible { outline: 2px solid var(--gc-cyan); outline-offset: 3px; }
   @media (max-width: 640px) { .glb img { height: 26px; } }
+
+  /* claim result (ETH + token drip) */
+  .claim-result { margin-top: 12px; padding: 12px 14px; border: 1px solid var(--gc-line); border-radius: 16px; font-size: 14px; display: grid; gap: 6px; }
+  .claim-result p { margin: 0; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; word-break: break-word; }
+  .claim-result .ic.ok { color: var(--gc-green); }
+  .claim-result a { color: var(--gc-cyan); }
+  .claim-result .muted { color: var(--gc-muted); }
 
   /* toasts */
   .toasts { position: fixed; right: 16px; bottom: 16px; z-index: 60; display: flex; flex-direction: column; gap: 10px; width: min(360px, calc(100vw - 32px)); pointer-events: none; }

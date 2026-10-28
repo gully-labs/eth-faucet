@@ -17,7 +17,8 @@ type claimRequest struct {
 }
 
 type claimResponse struct {
-	Message string `json:"msg"`
+	Message string       `json:"msg"`
+	Token   *tokenResult `json:"token,omitempty"` // the glUSD drip of a successful claim
 }
 
 type infoResponse struct {
@@ -30,7 +31,8 @@ type infoResponse struct {
 	GullyIDIssuer   string `json:"gullyid_issuer,omitempty"`
 	SignInRequired  bool    `json:"signin_required"`
 	Eligibility     bool    `json:"eligibility_check"`
-	WindowHours     float64 `json:"window_hours"`
+	WindowHours     float64    `json:"window_hours"`
+	Token           *tokenInfo `json:"token,omitempty"`
 }
 
 type malformedRequest struct {

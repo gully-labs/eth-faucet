@@ -14,6 +14,7 @@ type Config struct {
 	gullyIDClient   string // empty = no "Sign in with Gully" button (see SetGullyID)
 	gullyIDIssuer   string
 	protection      Protection
+	token           *TokenDrip // nil = ETH only (see SetTokenDrip)
 }
 
 func NewConfig(network, symbol string, httpPort, interval, proxyCount int, payout float64, hcaptchaSiteKey, hcaptchaSecret string) *Config {
