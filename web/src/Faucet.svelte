@@ -646,12 +646,13 @@
 
 <footer>
   <div class="wrap">
-    <div><a class="fwm" href="https://gullychain.xyz" target="_blank" rel="noopener noreferrer" aria-label="GullyChain home (opens in a new tab)"><img src="/brand/logo/gullychain-wordmark-for-light-bg.png" width="520" height="89" alt="GullyChain" loading="lazy" /></a><span class="tag">Testnet faucet · chain {CHAIN.id}</span></div>
+    <div><a class="fwm" href="https://gullychain.xyz"><img class="fwm-i" src="/android-chrome-512.png" width="28" height="28" alt="" loading="lazy" /><img class="fwm-t" src="/brand/logo/gullychain-wordmark-for-light-bg.svg" width="117" height="20" alt="Gully Chain" loading="lazy" /></a><span class="tag">Testnet faucet · chain {CHAIN.id}</span></div>
     <nav aria-label="GullyChain products"><ul>{#each PRODUCTS as l}<li><a href={l.href}>{l.name}</a></li>{/each}<li><a href={SOURCE} target="_blank" rel="noopener noreferrer">Source</a></li></ul></nav>
     <ul aria-label="Official GullyChain channels">{#each SOCIALS as l}<li><a href={l.href} target="_blank" rel="noopener noreferrer">{l.name}</a></li>{/each}</ul>
     <div class="fbot">
       <p class="copy2">Testnet only. Tokens have no value. MIT, a fork of chainflag/eth-faucet.</p>
-      <a class="glb" href="https://gullylabs.xyz" target="_blank" rel="noopener noreferrer" aria-label="Powered by Gully Labs (opens in a new tab)"><img src="/brand/gully-labs/powered-by-gully-labs-light.png" srcset="/brand/gully-labs/powered-by-gully-labs-light.png 1x, /brand/gully-labs/powered-by-gully-labs-light-2x.png 2x, /brand/gully-labs/powered-by-gully-labs-light-3x.png 3x" width="127" height="32" alt="Powered by Gully Labs" loading="lazy" /></a>
+      <span class="fbadges"><a class="gcb" href="https://gullychain.xyz" aria-label="Powered by GullyChain"><img src="/brand/badges/gullychain-powered-by-light.svg" srcset="/brand/badges/gullychain-powered-by-light.png 1x, /brand/badges/gullychain-powered-by-light-2x.png 2x, /brand/badges/gullychain-powered-by-light-3x.png 3x" width="142" height="42" alt="Powered by GullyChain" loading="lazy" /></a>
+      <a class="glb" href="https://gullylabs.xyz" target="_blank" rel="noopener noreferrer" aria-label="Powered by Gully Labs (opens in a new tab)"><img src="/brand/gully-labs/powered-by-gully-labs-light.png" srcset="/brand/gully-labs/powered-by-gully-labs-light.png 1x, /brand/gully-labs/powered-by-gully-labs-light-2x.png 2x, /brand/gully-labs/powered-by-gully-labs-light-3x.png 3x" width="127" height="32" alt="Powered by Gully Labs" loading="lazy" /></a></span>
     </div>
   </div>
 </footer>
@@ -841,8 +842,14 @@
   footer ul a:hover { color: var(--link); }
   footer .tag { font-weight: 500; font-size: 12px; color: var(--muted-c); margin-top: 6px; display: block; }
   footer .copy2 { font-size: 12px; color: var(--muted-c); width: 100%; margin: 0; }
-  footer .fwm { display: inline-flex; line-height: 0; }
-  footer .fwm img { height: 22px; width: auto; }
+  /* brand-kit lockup for light grounds: dark tile (android-chrome-512.png = icon/gullychain-icon-dark-512.png) + light-bg wordmark SVG */
+  footer .fwm { display: inline-flex; align-items: center; gap: 8px; line-height: 0; }
+  footer .fwm img { display: block; flex: none; max-width: none; }
+  footer .fwm .fwm-i { width: 28px; height: 28px; }
+  footer .fwm .fwm-t { width: auto; height: 20px; }
+  .fbadges { display: inline-flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .gcb { display: inline-flex; line-height: 0; flex: none; }
+  .gcb img { width: 142px; height: 42px; }
   footer .fbot { width: 100%; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; padding-top: 12px; border-top: 1px solid var(--divider); }
   footer .fbot .copy2 { width: auto; }
   .glb { display: inline-flex; line-height: 0; flex: none; border-radius: 8px; }
