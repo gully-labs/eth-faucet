@@ -13,7 +13,7 @@
     explorer: 'https://testnet-explorer.gullychain.xyz',
   };
   const LINKS = [
-    { name: 'App', href: 'https://testnet-app.gullychain.xyz', icon: 'grid' },
+    { name: 'App', href: 'https://kre8.fun/', icon: 'grid' },
     { name: 'Bridge', href: 'https://testnet-bridge.gullychain.xyz/', icon: 'arrows' },
     { name: 'Docs', href: 'https://docs.gullychain.xyz/', icon: 'book' },
     { name: 'Explorer', href: CHAIN.explorer + '/', icon: 'search' },
@@ -21,7 +21,7 @@
   // Footer: every GullyChain product, same tab (one product family). Header nav is the <gc-switcher> element.
   const PRODUCTS = [
     { name: 'GullyChain', href: 'https://gullychain.xyz/' },
-    { name: 'App', href: 'https://testnet-app.gullychain.xyz/' },
+    { name: 'App', href: 'https://kre8.fun/' },
     { name: 'Bridge', href: 'https://testnet-bridge.gullychain.xyz/' },
     { name: 'Explorer', href: CHAIN.explorer + '/' },
     { name: 'Sentry', href: 'https://sentry.gullychain.xyz/' },

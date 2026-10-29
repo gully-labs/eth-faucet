@@ -194,6 +194,11 @@ The Gully Chain faucet is served at https://testnet-faucet.gullychain.xyz (canon
 both hostnames (hCaptcha dashboard > Sites > the faucet site key > Domains), or the widget fails on the missing one.
 A Gully ID client used with `-gullyid.client` needs both origins in its allowed origins / redirect URIs.
 
+The Gully Chain app (https://kre8.fun, and https://app.gullychain.xyz during the move) calls this server same-origin
+through `/faucet-api/*` on its own host. The server has no Origin/Referer check, so there is nothing to allow-list here;
+if the app renders the hCaptcha widget with this site key, the hCaptcha site must also list `kre8.fun`
+(keep `app.gullychain.xyz`).
+
 ## License
 
 Distributed under the MIT License. See LICENSE for more information.
