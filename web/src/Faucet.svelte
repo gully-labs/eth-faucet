@@ -30,6 +30,8 @@
     { name: 'Status', href: 'https://status.gullylabs.xyz/' },
   ];
   const SOURCE = 'https://github.com/gully-labs/eth-faucet';
+  // Every other Gully product is listed once, on the docs ecosystem page (owner rule 2026-10-29: Gully Chain nav only).
+  const ECOSYSTEM = 'https://docs.gullychain.xyz/ecosystem/';
   // Official GullyChain channels (every GullyChain footer carries them).
   const SOCIALS = [
     { name: 'Telegram', href: 'https://t.me/GullyChain' },
@@ -647,7 +649,7 @@
 <footer>
   <div class="wrap">
     <div><a class="fwm" href="https://gullychain.xyz"><img class="fwm-i" src="/android-chrome-512.png" width="28" height="28" alt="" loading="lazy" /><img class="fwm-t" src="/brand/logo/gullychain-wordmark-for-light-bg.svg" width="117" height="20" alt="Gully Chain" loading="lazy" /></a><span class="tag">Testnet faucet · chain {CHAIN.id}</span></div>
-    <nav aria-label="GullyChain products"><ul>{#each PRODUCTS as l}<li><a href={l.href}>{l.name}</a></li>{/each}<li><a href={SOURCE} target="_blank" rel="noopener noreferrer">Source</a></li></ul></nav>
+    <nav aria-label="GullyChain products"><ul>{#each PRODUCTS as l}<li><a href={l.href}>{l.name}</a></li>{/each}<li><a href={SOURCE} target="_blank" rel="noopener noreferrer">Source</a></li><li><a href={ECOSYSTEM} target="_blank" rel="noopener noreferrer">Gully ecosystem →</a></li></ul></nav>
     <ul aria-label="Official GullyChain channels">{#each SOCIALS as l}<li><a href={l.href} target="_blank" rel="noopener noreferrer">{l.name}</a></li>{/each}</ul>
     <div class="fbot">
       <p class="copy2">Testnet only. Tokens have no value. MIT, a fork of chainflag/eth-faucet.</p>
