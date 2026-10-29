@@ -1,3 +1,7 @@
+// Gully Chain Night: the shared black design (gully-ops sites/_shared/gullychain-night, vendored by
+// scripts/sync-gullychain-night.mjs; never edit src/night/ by hand)
+import './night/tokens.css';
+import './night/components.css';
 import { mount } from 'svelte';
 import App from './App.svelte';
 

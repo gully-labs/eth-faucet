@@ -5,30 +5,26 @@
 <Faucet />
 
 <style>
-  /* GullyChain brand kit v3 tokens (brand-kit/tokens.json + CLAUDE_PROMPT.md). Values are exact; do not invent new ones.
-     --st-warn / --st-down are the two state colours the kit does not define (warning, down). */
+  /* Gully Chain Night (GN): every value comes from the shared tokens (src/night/tokens.css, vendored byte for byte from
+     gully-ops sites/_shared/gullychain-night). The faucet's older names only alias --gn-* so each rule maps 1:1. */
   :global(:root) {
-    /* Studio Light tokens (gully-ops sites/_shared/studio-light); the kit v3 names alias them */
-    --bg: #ffffff; --surface: #f6f7f9; --surface-2: #f4f5f7; --hover: #f1f2f4; --border: #e6e8ec; --border-2: #d5d9e0; --divider: #f0f1f4;
-    --text: #0b0d12; --text-2: #3d4350; --muted-c: #5b6270; --accent: #0a86c2; --link: #075f8c; --link-h: #04456a;
-    --ok: #0b6640; --ok-bg: #e5f6ee; --info: #075f8c; --info-bg: #e6f4fb; --warn: #7a4a00; --warn-bg: #fff4de; --danger: #b42318;
-    --c-green: #16a34a; --c-indigo: #6366f1; --c-amber: #f59e0b;
-    --gc-night: var(--bg);
-    --gc-ink: #ffffff;
-    --gc-blue: var(--c-indigo);
-    --gc-cyan: var(--accent);
-    --gc-green: var(--ok);
-    --gc-white: var(--text);
-    --gc-muted: var(--muted-c);
-    --gc-line: var(--border);
-    --gc-chain-gradient: linear-gradient(90deg, #0a86c2, #16a34a);
-    --gc-font: Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
-    --f-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    --gc-radius-card: 14px;
-    --gc-radius-pill: 8px;
+    --bg: var(--gn-bg); --surface: var(--gn-surface); --surface-2: var(--gn-surface-2); --hover: var(--gn-surface-2);
+    --border: var(--gn-line); --border-2: var(--gn-line-strong); --divider: var(--gn-grid);
+    --text: var(--gn-text); --text-2: var(--gn-text-2); --muted-c: var(--gn-text-3);
+    --accent: var(--gn-cyan); --link: var(--gn-link); --link-h: var(--gn-link-hover);
+    --ok: var(--gn-ok); --ok-bg: var(--gn-ok-bg); --info: var(--gn-info); --info-bg: var(--gn-info-bg);
+    --warn: var(--gn-warn); --warn-bg: var(--gn-warn-bg); --danger: var(--gn-danger); --danger-bg: var(--gn-danger-bg);
+    --c-green: var(--gn-green); --c-blue: var(--gn-c3);
+    --gc-night: var(--gn-night); --gc-ink: var(--gn-ink); --gc-cyan: var(--gn-cyan); --gc-green: var(--gn-green);
+    --gc-white: var(--gn-text); --gc-muted: var(--gn-text-3); --gc-line: var(--gn-line);
+    --gc-chain-gradient: var(--gn-gradient);
+    --gc-font: var(--gn-font);
+    --f-mono: var(--gn-font-mono);
+    --gc-radius-card: var(--gn-r-lg);
+    --gc-radius-pill: var(--gn-r-pill);
     --st-warn: var(--warn);
     --st-down: var(--danger);
-    color-scheme: light;
+    color-scheme: dark;
   }
   :global(*),
   :global(*::before),
@@ -43,10 +39,10 @@
     min-height: 100vh;
     background: var(--gc-night);
     color: var(--gc-white);
-    font-family: var(--gc-font);
-    font-weight: 400;
-    font-size: 14px;
-    line-height: 1.5;
+    font-family: var(--gn-font);
+    font-weight: var(--gn-w-regular);
+    font-size: var(--gn-fs-sm);
+    line-height: var(--gn-lh);
     -webkit-font-smoothing: antialiased;
     overflow-x: hidden;
   }
