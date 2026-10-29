@@ -55,3 +55,34 @@ test('theme-color and color-scheme are the GN night', () => {
   assert.equal(mf.theme_color.toUpperCase(), '#05080D');
   assert.equal(mf.background_color.toUpperCase(), '#05080D');
 });
+
+// Design-gap audit 2026-10-29: one click to every key Gully Chain surface, switcher 1.7.0, branded 404, no retired token.
+test('header nav reaches dev, docs, bridge, explorer, ecosystem and status, each with an icon', () => {
+  const s = readFileSync(join(WEB, 'src/Faucet.svelte'), 'utf8');
+  const nav = s.slice(s.indexOf('const NAV = ['), s.indexOf('];', s.indexOf('const NAV = [')));
+  for (const u of ['https://dev.gullychain.xyz/', 'https://docs.gullychain.xyz/', 'https://testnet-bridge.gullychain.xyz/', "CHAIN.explorer + '/'", 'https://gullychain.xyz/ecosystem/', 'https://status.gullylabs.xyz/']) assert.ok(nav.includes(u), u);
+  assert.equal((nav.match(/icon: '/g) || []).length, 6, 'every nav item has an icon');
+  assert.match(s, /<nav class="topnav"[\s\S]*?\{@html icon\(l\.icon\)\}<\/span><span class="tl">\{l\.name\}/);
+  assert.match(s, /\{ name: 'Ecosystem', href: 'https:\/\/gullychain\.xyz\/ecosystem\/' \}/, 'footer links the ecosystem page');
+});
+
+test('gc-switcher 1.7.0 (hover opens the grid), loaded with its version on both pages', () => {
+  const js = readFileSync(join(WEB, 'public/gc-switcher.js'), 'utf8');
+  assert.match(js, /GC_SWITCHER_VERSION = '1\.7\.0'/);
+  for (const f of ['index.html', '404.html']) assert.match(readFileSync(join(WEB, f), 'utf8'), /gc-switcher\.js\?v=1\.7\.0/, f);
+});
+
+test('the page does not advertise the retired glUSD drip', () => {
+  const s = readFileSync(join(WEB, 'src/Faucet.svelte'), 'utf8');
+  assert.match(s, /RETIRED_TOKENS = \['glUSD'\]/);
+  assert.match(s, /\{#if faucetInfo\.token && !RETIRED_TOKENS\.includes\(faucetInfo\.token\.symbol\)\}Each claim also sends/);
+});
+
+test('404 page: noindex, kit dark logo, switcher, links to every key surface, GN tokens only', () => {
+  const h = readFileSync(join(WEB, '404.html'), 'utf8');
+  assert.match(h, /name="robots" content="noindex"/);
+  assert.match(h, /gullychain-logo-transparent\.png/);
+  assert.match(h, /<gc-switcher [^>]*theme="dark"/);
+  for (const u of ['dev.gullychain.xyz', 'docs.gullychain.xyz', 'testnet-bridge.gullychain.xyz', 'testnet-explorer.gullychain.xyz', 'gullychain.xyz/ecosystem/', 'status.gullylabs.xyz']) assert.ok(h.includes(`https://${u}`), u);
+  assert.doesNotMatch(readFileSync(join(WEB, 'src/notfound.css'), 'utf8'), /#[0-9a-f]{3,6}\b|rgba?\(/i);
+});
