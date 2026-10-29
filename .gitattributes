@@ -1,0 +1,5 @@
+# Byte-exact vendored files (hashes are checked by web/tests/night.test.mjs): never convert line endings.
+web/src/night/** -text
+web/public/assets/fonts/** -text
+web/public/brand/** -text
+web/public/gc-switcher.js -text
