@@ -17,7 +17,7 @@ import (
 	"github.com/chainflag/eth-faucet/internal/chain"
 )
 
-// TokenDrip is the optional test-stablecoin payout (glUSD on Gully Chain) that goes out with every successful ETH
+// TokenDrip is the optional test-stablecoin payout (USDC.e on Gully Chain) that goes out with every successful ETH
 // claim. It sits behind the same gate as the ETH payout (sign-in, eligibility, denylist, real IP, per-account/address/IP
 // window, ETH budget), and has its own budget on top: a rolling 24 h cap and an optional lifetime cap. It fails
 // closed and never takes the ETH claim down with it: an empty token budget, a short wallet or a failed send only adds
@@ -32,7 +32,7 @@ type TokenDrip struct {
 	AmountText string   // "1"
 }
 
-// NewTokenDrip builds the drip from human amounts ("1" glUSD). dayCap must be > 0; totalCap 0 = no lifetime cap.
+// NewTokenDrip builds the drip from human amounts ("1" USDC.e). dayCap must be > 0; totalCap 0 = no lifetime cap.
 func NewTokenDrip(token, symbol string, decimals uint8, amount, dayCap, totalCap float64) (*TokenDrip, error) {
 	if !common.IsHexAddress(token) {
 		return nil, fmt.Errorf("token drip: %q is not an address", token)

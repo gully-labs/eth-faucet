@@ -59,9 +59,9 @@ var (
 	alertWebhookFlag    = flag.String("alert.webhook", os.Getenv("FAUCET_ALERT_WEBHOOK"), "URL that receives budget alerts as JSON {text}")
 	tgChatFlag          = flag.String("alert.telegramchat", os.Getenv("TELEGRAM_CHAT_ID"), "Telegram chat id for alerts (bot token: TELEGRAM_BOT_TOKEN)")
 
-	// token drip (2026-10-28): a small test-stablecoin payout (glUSD) with every successful ETH claim
+	// token drip (2026-10-28): a small test-stablecoin payout (USDC.e) with every successful ETH claim
 	tokenFlag         = flag.String("token.address", os.Getenv("FAUCET_TOKEN_ADDRESS"), "ERC-20 sent with every successful claim (empty = ETH only)")
-	tokenSymbolFlag   = flag.String("token.symbol", envString("FAUCET_TOKEN_SYMBOL", "glUSD"), "Symbol of -token.address shown on the page")
+	tokenSymbolFlag   = flag.String("token.symbol", envString("FAUCET_TOKEN_SYMBOL", "USDC.e"), "Symbol of -token.address shown on the page")
 	tokenAmountFlag   = flag.Float64("token.amount", envFloat("FAUCET_TOKEN_AMOUNT", 1), "Tokens per claim (whole units)")
 	tokenDayCapFlag   = flag.Float64("token.daycap", envFloat("FAUCET_TOKEN_BUDGET_DAY", 0), "Max tokens per rolling 24 h (required with -token.address)")
 	tokenTotalCapFlag = flag.Float64("token.totalcap", envFloat("FAUCET_TOKEN_BUDGET_TOTAL", 0), "Max tokens over the faucet's lifetime, kept in the state file (0 = no lifetime cap)")
