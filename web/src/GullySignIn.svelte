@@ -86,8 +86,8 @@
   .gid { display: none; }
   .gid.on { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding-bottom: 10px; border-bottom: 1px solid var(--gc-line); }
   .gid-btn:empty { display: none; }
-  .gid-who { margin: 0; flex: 1 1 220px; min-width: 0; display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--gc-muted); overflow-wrap: anywhere; }
-  .gid-who b { color: var(--gc-white); }
-  .gid-who .mono { font-family: var(--f-mono); color: var(--gc-white); }
+  .gid-who { margin: 0; flex: 1 1 220px; min-width: 0; display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--gn-text-3); overflow-wrap: anywhere; }
+  .gid-who b { color: var(--gn-text); }
+  .gid-who .mono { font-family: var(--f-mono); color: var(--gn-text); }
   .gid-av { width: 22px; height: 22px; border-radius: 50%; object-fit: cover; flex: none; border: 1px solid var(--gc-line); }
 </style>

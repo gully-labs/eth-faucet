@@ -15,10 +15,9 @@
     --ok: var(--gn-ok); --ok-bg: var(--gn-ok-bg); --info: var(--gn-info); --info-bg: var(--gn-info-bg);
     --warn: var(--gn-warn); --warn-bg: var(--gn-warn-bg); --danger: var(--gn-danger); --danger-bg: var(--gn-danger-bg);
     --c-green: var(--gn-green); --c-blue: var(--gn-c3);
-    --gc-night: var(--gn-night); --gc-ink: var(--gn-ink); --gc-cyan: var(--gn-cyan); --gc-green: var(--gn-green);
-    --gc-white: var(--gn-text); --gc-muted: var(--gn-text-3); --gc-line: var(--gn-line);
+    --gc-night: var(--gn-night); --gc-cyan: var(--gn-cyan); --gc-green: var(--gn-green);
+    --gc-line: var(--gn-line);
     --gc-chain-gradient: var(--gn-gradient);
-    --gc-font: var(--gn-font);
     --f-mono: var(--gn-font-mono);
     --gc-radius-card: var(--gn-r-lg);
     --gc-radius-pill: var(--gn-r-pill);
@@ -38,7 +37,7 @@
     margin: 0;
     min-height: 100vh;
     background: var(--gc-night);
-    color: var(--gc-white);
+    color: var(--gn-text-2); /* GN 2.0: body silver, headings white */
     font-family: var(--gn-font);
     font-weight: var(--gn-w-regular);
     font-size: var(--gn-fs-sm);
