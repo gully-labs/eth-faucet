@@ -18,7 +18,7 @@ type claimRequest struct {
 
 type claimResponse struct {
 	Message string       `json:"msg"`
-	Token   *tokenResult `json:"token,omitempty"`  // the glUSD drip of a successful claim
+	Token   *tokenResult `json:"token,omitempty"`  // the USDC.e drip of a successful claim
 	Tier    string       `json:"tier,omitempty"`   // "standard" or "developer" (successful claims)
 	Amount  string       `json:"amount,omitempty"` // ETH sent (successful claims)
 }

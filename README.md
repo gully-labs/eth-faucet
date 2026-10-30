@@ -124,8 +124,8 @@ The following are the available command-line flags(excluding above wallet flags)
 
 **Token drip (test stablecoin, Gully fork)**
 
-With `-token.address` set, every successful ETH claim also sends a small ERC-20 amount (on Gully Chain: 1 glUSD,
-`0xDBE84bE6496Fb3d07F601548555ec7Acc4CeBa8F`) from the same hot wallet. It runs behind the same gate as the ETH payout
+With `-token.address` set, every successful ETH claim also sends a small ERC-20 amount (on Gully Chain: 1 USDC.e,
+`0x65Ba03c6FA90Ed549f465D4c8f2e784D6eEB7E76`) from the same hot wallet. It runs behind the same gate as the ETH payout
 (Gully ID sign-in, eligibility, denylist, real client IP, one claim per account/address/IP per window, ETH budget) and
 has its own budget on top. It fails closed: when the token budget is used up, the wallet holds less than one payout,
 the balance check fails or the send fails, the claim still pays ETH and the response says why no token was sent. Only
@@ -134,7 +134,7 @@ sent drips count against the budget; the lifetime total is kept in the state fil
 | Flag / env | Description | Default |
 |---|---|---|
 | `-token.address` / `FAUCET_TOKEN_ADDRESS` | ERC-20 to drip (decimals are read from the token) | empty = ETH only |
-| `-token.symbol` / `FAUCET_TOKEN_SYMBOL` | symbol shown on the page | glUSD |
+| `-token.symbol` / `FAUCET_TOKEN_SYMBOL` | symbol shown on the page | USDC.e |
 | `-token.amount` / `FAUCET_TOKEN_AMOUNT` | whole tokens per claim | 1 |
 | `-token.daycap` / `FAUCET_TOKEN_BUDGET_DAY` | max tokens per rolling 24 h (required, >= one payout) | 0 = refuse to start |
 | `-token.totalcap` / `FAUCET_TOKEN_BUDGET_TOTAL` | max tokens over the faucet's lifetime | 0 = no lifetime cap |

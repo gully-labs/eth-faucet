@@ -86,10 +86,10 @@ test('no kit v3 colour literals or Exo 2 in the faucet sources', () => {
   for (const f of files) assert.doesNotMatch(readFileSync(join(WEB, f), 'utf8'), v3, f);
 });
 
-test('the page does not advertise the retired glUSD drip', () => {
+test('the page names no retired stablecoin and shows the USDC.e drip when configured', () => {
   const s = readFileSync(join(WEB, 'src/Faucet.svelte'), 'utf8');
-  assert.match(s, /RETIRED_TOKENS = \['glUSD'\]/);
-  assert.match(s, /\{#if faucetInfo\.token && !RETIRED_TOKENS\.includes\(faucetInfo\.token\.symbol\)\}Each claim also sends/);
+  assert.doesNotMatch(s, /gl-?usd|0xDBE84bE6/i);
+  assert.match(s, /\{#if faucetInfo\.token\}Each claim also sends/);
 });
 
 test('404 page: noindex, kit dark logo, switcher, links to every key surface, GN tokens only', () => {
