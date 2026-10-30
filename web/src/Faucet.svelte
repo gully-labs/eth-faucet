@@ -18,7 +18,20 @@
     { name: 'Docs', href: 'https://docs.gullychain.xyz/', icon: 'book' },
     { name: 'Explorer', href: CHAIN.explorer + '/', icon: 'search' },
   ];
-  // Footer: every GullyChain product, same tab (one product family). Header nav is the <gc-switcher> element.
+  // Header nav (design-gap audit 2026-10-29): every key Gully Chain surface one click from the faucet, icon + label, same
+  // tab. The <gc-switcher> (1.7.0, opens on hover) carries the full product grid; below 900 px only the switcher shows.
+  const NAV = [
+    { name: 'Developers', href: 'https://dev.gullychain.xyz/', icon: 'code' },
+    { name: 'Docs', href: 'https://docs.gullychain.xyz/', icon: 'book' },
+    { name: 'Bridge', href: 'https://testnet-bridge.gullychain.xyz/', icon: 'arrows' },
+    { name: 'Explorer', href: CHAIN.explorer + '/', icon: 'search' },
+    { name: 'Ecosystem', href: 'https://gullychain.xyz/ecosystem/', icon: 'grid' },
+    { name: 'Status', href: 'https://status.gullylabs.xyz/', icon: 'activity' },
+  ];
+  // glUSD is retired (owner rule: USDC.e only). The backend still drips it until FAUCET_TOKEN_* points at a USDC.e test
+  // token, so the page does not advertise a retired token; the claim result still reports what was sent.
+  const RETIRED_TOKENS = ['glUSD'];
+  // Footer: every GullyChain product, same tab (one product family).
   const PRODUCTS = [
     { name: 'GullyChain', href: 'https://gullychain.xyz/' },
     { name: 'App', href: 'https://kre8.fun/' },
@@ -27,6 +40,7 @@
     { name: 'Sentry', href: 'https://sentry.gullychain.xyz/' },
     { name: 'Docs', href: 'https://docs.gullychain.xyz/' },
     { name: 'Developers', href: 'https://dev.gullychain.xyz/' },
+    { name: 'Ecosystem', href: 'https://gullychain.xyz/ecosystem/' },
     { name: 'Status', href: 'https://status.gullylabs.xyz/' },
   ];
   const SOURCE = 'https://github.com/gully-labs/eth-faucet';
@@ -46,6 +60,8 @@
     arrows: '<path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/>',
     book: '<path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/>',
     search: '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+    code: '<path d="m16 18 6-6-6-6"/><path d="m8 6-6 6 6 6"/>',
+    activity: '<path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2"/>',
     droplet: '<path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/>',
     wallet: '<path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/>',
     plus: '<circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="M12 8v8"/>',
@@ -495,6 +511,7 @@
       <a class="logo" href="https://gullychain.xyz/" aria-label="Gully Chain home"><img src="/brand/logo/gullychain-logo-transparent.png" width="155" height="36" alt="Gully Chain" /></a>
       <gc-switcher current="faucet" theme="dark" logo="off"></gc-switcher>
     </div>
+    <nav class="topnav" aria-label="Gully Chain"><ul>{#each NAV as l}<li><a href={l.href} title={l.name}><span class="ic">{@html icon(l.icon)}</span><span class="tl">{l.name}</span></a></li>{/each}</ul></nav>
     <div class="navr">
       <span class="pill" class:live={blockNumber != null} class:flash={blockBumped} role="status" aria-live="polite" title="Latest block from {CHAIN.rpc}"><span class="dot" aria-hidden="true"></span><span>{blockNumber == null ? 'Connecting' : 'Live · #' + fmtBlock(blockNumber)}</span></span>
       <button type="button" class="btn ter sm hide-s" onclick={addToWallet} disabled={addingChain}><span class="ic">{@html icon(networkAdded ? 'check' : 'wallet')}</span>Add to wallet</button>
@@ -508,7 +525,7 @@
       <div class="copy">
         <span class="badge">Testnet faucet · chain {CHAIN.id}</span>
         <h1 id="h1">Testnet ETH, <em>{faucetInfo.payout}&nbsp;{faucetInfo.symbol}</em> a day</h1>
-        <p class="promise">{#if faucetInfo.signin_required}Sign in with Gully, then one claim per account, address and IP every 24 hours.{:else}One claim per address and per IP every 24 hours.{/if} {#if faucetInfo.token}Each claim also sends <b>{faucetInfo.token.amount} {faucetInfo.token.symbol}</b> (test stablecoin) while the daily {faucetInfo.token.symbol} budget lasts, for Gully Pay checkout and swaps. {/if}<b>Testnet ETH has no value</b>; use it to try the app, deploy contracts and test the bridge.</p>
+        <p class="promise">{#if faucetInfo.signin_required}Sign in with Gully, then one claim per account, address and IP every 24 hours.{:else}One claim per address and per IP every 24 hours.{/if} {#if faucetInfo.token && !RETIRED_TOKENS.includes(faucetInfo.token.symbol)}Each claim also sends <b>{faucetInfo.token.amount} {faucetInfo.token.symbol}</b> (test stablecoin) while the daily {faucetInfo.token.symbol} budget lasts, for Gully Pay checkout and swaps. {/if}<b>Testnet ETH has no value</b>; use it to try the app, deploy contracts and test the bridge.</p>
 
         <ol class="stepper" aria-label="Steps">
           <li class:done={step > 1} class:active={step === 1}><span class="n">{#if step > 1}{@html icon('check')}{:else}1{/if}</span><span>Add network</span></li>
@@ -709,6 +726,15 @@
   .brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
   .logo { display: inline-flex; flex: none; line-height: 0; border-radius: var(--gn-r-sm); }
   .logo img { height: 36px; width: auto; max-width: none; }
+  .topnav { flex: 1 1 auto; min-width: 0; display: flex; justify-content: center; }
+  .topnav ul { list-style: none; margin: 0; padding: 0; display: flex; gap: 2px; }
+  .topnav a { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 12px; border-radius: var(--gn-r-pill); color: var(--gn-text-2); font-size: 14px; text-decoration: none; white-space: nowrap; }
+  .topnav a .ic { color: var(--gn-muted); }
+  .topnav a:hover { color: var(--gn-text); background: var(--gn-surface-2); }
+  .topnav a:hover .ic { color: var(--gn-cyan); }
+  .topnav a:focus-visible { outline: none; box-shadow: var(--gn-focus); }
+  @media (max-width: 1239px) { .topnav .tl { display: none; } .topnav a { padding: 0 10px; } }
+  @media (max-width: 899px) { .topnav { display: none; } }
   .navr { display: flex; align-items: center; gap: 10px; flex: none; }
   .pill { display: inline-flex; align-items: center; gap: 8px; height: 32px; padding: 0 12px; border-radius: var(--gn-r-pill); border: 1px solid var(--border); background: var(--gn-surface); font-size: 13px; color: var(--muted-c); white-space: nowrap; font-variant-numeric: tabular-nums; }
   .pill .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted-c); flex: none; }

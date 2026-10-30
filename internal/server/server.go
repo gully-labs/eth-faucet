@@ -31,7 +31,7 @@ func NewServer(builder chain.TxBuilder, cfg *Config) *Server {
 
 func (s *Server) setupRouter() *http.ServeMux {
 	router := http.NewServeMux()
-	router.Handle("/", http.FileServer(web.Dist()))
+	router.Handle("/", withNotFound(web.Dist()))
 	p := s.cfg.protection
 	ipr, err := NewIPResolver(p.TrustedProxies, p.CloudflareCIDRs)
 	if err != nil {
