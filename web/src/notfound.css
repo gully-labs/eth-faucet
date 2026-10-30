@@ -1,7 +1,7 @@
 /* 404 layout on the GN tokens (no colour literals: every value is a --gn-* token) */
 .nf-hd { position: sticky; top: 0; background: var(--gn-black); border-bottom: 1px solid var(--gn-line); }
 .nf-hd .gn-wrap { display: flex; align-items: center; gap: 12px; height: var(--gn-header-h); }
-.nf-logo img { height: 36px; width: auto; }
+.nf-logo img { width: 32px; height: 32px; }
 .nf { display: grid; gap: 16px; justify-items: start; padding-top: clamp(48px, 10vh, 120px); padding-bottom: 64px; }
 .nf h1 { font-size: var(--gn-fs-h1); }
 .nf p { color: var(--gn-text-2); max-width: 52ch; }

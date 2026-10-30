@@ -3,7 +3,7 @@
   import { getAddress } from '@ethersproject/address';
   import GullySignIn from './GullySignIn.svelte';
 
-  // GullyChain testnet faucet (gully-labs fork): brand kit v3 in the landing's "Terminal" language. The faucet logic,
+  // GullyChain testnet faucet (gully-labs fork): brand kit v4 (Gully Chain Night 2.0). The faucet logic,
   // flags and API below are upstream's; only the page changed.
   const CHAIN = {
     id: 485590,
@@ -506,9 +506,9 @@
 <header class="nav">
   <div class="wrap">
     <div class="brand">
-      <!-- brand kit v3 logo/gullychain-logo-transparent.png (1315x305, byte for byte) on night; the switcher hides its own
-           logo (logo="off") so the mark shows once. gc-switcher: public/gc-switcher.js, canonical gully-ops sites/_shared/gc-switcher -->
-      <a class="logo" href="https://gullychain.xyz/" aria-label="Gully Chain home"><img src="/brand/logo/gullychain-logo-transparent.png" width="155" height="36" alt="Gully Chain" /></a>
+      <!-- brand kit v4 logo/gc-icon.svg (byte for byte) on night; kit v4 has no wordmark file, so the icon stands alone.
+           The switcher hides its own logo (logo="off") so the mark shows once. gc-switcher: public/gc-switcher.js, canonical gully-ops sites/_shared/gc-switcher -->
+      <a class="logo" href="https://gullychain.xyz/" aria-label="Gully Chain home"><img src="/brand/logo/gc-icon.svg" width="32" height="32" alt="Gully Chain" /></a>
       <gc-switcher current="faucet" theme="dark" logo="off"></gc-switcher>
     </div>
     <nav class="topnav" aria-label="Gully Chain"><ul>{#each NAV as l}<li><a href={l.href} title={l.name}><span class="ic">{@html icon(l.icon)}</span><span class="tl">{l.name}</span></a></li>{/each}</ul></nav>
@@ -661,8 +661,8 @@
         </div>
       </div>
       <div class="mascot" aria-hidden="true">
-        <!-- kit mascot (byte for byte) on the night ground -->
-        <img src="/brand/mascots/gullychain-mascot-builder.png" width="370" height="385" alt="" loading="lazy" />
+        <!-- kit v4 mascots/mascot-builder.png (630x502, byte for byte, uncropped) on the night ground -->
+        <img src="/brand/mascots/mascot-builder.png" width="630" height="502" alt="" loading="lazy" />
         <div class="fade"></div>
       </div>
     </div>
@@ -671,12 +671,12 @@
 
 <footer>
   <div class="wrap">
-    <div><a class="fwm" href="https://gullychain.xyz"><img class="fwm-t" src="/brand/logo/gullychain-wordmark-for-dark-bg.svg" width="141" height="24" alt="Gully Chain" loading="lazy" /></a><span class="tag">Testnet faucet · chain {CHAIN.id}</span></div>
+    <div><a class="fwm" href="https://gullychain.xyz" aria-label="Gully Chain home"><img src="/brand/logo/gc-icon.svg" width="32" height="32" alt="Gully Chain" loading="lazy" /></a><span class="tag">Testnet faucet · chain {CHAIN.id}</span></div>
     <nav aria-label="GullyChain products"><ul>{#each PRODUCTS as l}<li><a href={l.href}>{l.name}</a></li>{/each}<li><a href={SOURCE} target="_blank" rel="noopener noreferrer">Source</a></li><li><a href={ECOSYSTEM} target="_blank" rel="noopener noreferrer">Gully ecosystem →</a></li></ul></nav>
     <ul aria-label="Official GullyChain channels">{#each SOCIALS as l}<li><a href={l.href} target="_blank" rel="noopener noreferrer">{l.name}</a></li>{/each}</ul>
     <div class="fbot">
       <p class="copy2">Testnet only. Tokens have no value. MIT, a fork of chainflag/eth-faucet.</p>
-      <span class="fbadges"><a class="gcb" href="https://gullychain.xyz" aria-label="Powered by GullyChain"><img src="/brand/badges/gullychain-powered-by-dark.svg" srcset="/brand/badges/gullychain-powered-by-dark.png 1x, /brand/badges/gullychain-powered-by-dark-2x.png 2x, /brand/badges/gullychain-powered-by-dark-3x.png 3x" width="142" height="42" alt="Powered by GullyChain" loading="lazy" /></a>
+      <span class="fbadges"><a class="gcb" href="https://gullychain.xyz" aria-label="Powered by GullyChain"><img src="/brand/badges/badge-dark.png" width="180" height="48" alt="Powered by GullyChain" loading="lazy" /></a>
       <a class="glb" href="https://gullylabs.xyz" target="_blank" rel="noopener noreferrer" aria-label="Powered by Gully Labs (opens in a new tab)"><img src="/brand/gully-labs/powered-by-gully-labs-dark.png" srcset="/brand/gully-labs/powered-by-gully-labs-dark.png 1x, /brand/gully-labs/powered-by-gully-labs-dark-2x.png 2x, /brand/gully-labs/powered-by-gully-labs-dark-3x.png 3x" width="127" height="32" alt="Powered by Gully Labs" loading="lazy" /></a></span>
     </div>
   </div>
@@ -700,7 +700,7 @@
 
 <style>
   /* Gully Chain Night (GN, gully-ops sites/_shared/gullychain-night): black ground, ink cards with a muted 18% line,
-     Exo 2 600/800, cyan accent, green for live and payouts, signature pill buttons, live animated charts (bars grow,
+     Inter (GN 2.0 = brand kit v4), emerald accent, mint for live and payouts, signature pill buttons, live animated charts (bars grow,
      sparklines grow) from the public RPC only, the builder mascot on night. Every colour is a --gn-* token (aliased
      in App.svelte); motion is off under prefers-reduced-motion. */
   .wrap { width: 100%; max-width: var(--gn-maxw); margin: 0 auto; padding: 0 var(--gn-gutter); }
@@ -725,7 +725,7 @@
   .nav .wrap { display: flex; align-items: center; justify-content: space-between; height: var(--gn-header-h); gap: 14px; }
   .brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
   .logo { display: inline-flex; flex: none; line-height: 0; border-radius: var(--gn-r-sm); }
-  .logo img { height: 36px; width: auto; max-width: none; }
+  .logo img { width: 32px; height: 32px; max-width: none; }
   .topnav { flex: 1 1 auto; min-width: 0; display: flex; justify-content: center; }
   .topnav ul { list-style: none; margin: 0; padding: 0; display: flex; gap: 2px; }
   .topnav a { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 12px; border-radius: var(--gn-r-pill); color: var(--gn-text-2); font-size: 14px; text-decoration: none; white-space: nowrap; }
@@ -867,7 +867,7 @@
   .band .muted { font-size: 14px; }
   .band .ctas { margin-top: 4px; }
   .mascot { position: relative; min-height: 200px; border-radius: var(--gn-r); background: var(--gn-night); overflow: hidden; pointer-events: none; }
-  .mascot img { position: absolute; right: 0; bottom: 0; height: 100%; max-height: 230px; width: auto; max-width: none; transition: transform 0.3s ease; }
+  .mascot img { position: absolute; inset: 8px; width: calc(100% - 16px); height: calc(100% - 16px); max-width: none; object-fit: contain; object-position: center bottom; transition: transform 0.3s ease; }
   .group.band:hover .mascot img { transform: scale(1.04) rotate(-2deg); }
   .mascot .fade { display: none; }
 
@@ -879,13 +879,12 @@
   footer ul a:hover { color: var(--text); }
   footer .tag { font-size: 12px; color: var(--muted-c); margin-top: 8px; display: block; }
   footer .copy2 { font-size: 12px; color: var(--muted-c); width: 100%; margin: 0; }
-  /* brand kit v3 logo/gullychain-wordmark-for-dark-bg.svg (byte for byte) */
+  /* brand kit v4 logo/gc-icon.svg (byte for byte); kit v4 has no wordmark file */
   footer .fwm { display: inline-flex; align-items: center; line-height: 0; border-radius: var(--gn-r-sm); }
-  footer .fwm img { display: block; flex: none; max-width: none; }
-  footer .fwm .fwm-t { width: auto; height: 24px; }
+  footer .fwm img { display: block; flex: none; max-width: none; width: 32px; height: 32px; }
   .fbadges { display: inline-flex; align-items: center; gap: 12px; flex-wrap: wrap; }
   .gcb { display: inline-flex; line-height: 0; flex: none; border-radius: var(--gn-r-sm); }
-  .gcb img { width: 142px; height: 42px; }
+  .gcb img { width: 180px; height: 48px; }
   footer .fbot { width: 100%; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; padding-top: 14px; border-top: 1px solid var(--border); }
   footer .fbot .copy2 { width: auto; }
   .glb { display: inline-flex; line-height: 0; flex: none; border-radius: var(--gn-r-sm); }

@@ -3,3 +3,5 @@ web/src/night/** -text
 web/public/assets/fonts/** -text
 web/public/brand/** -text
 web/public/gc-switcher.js -text
+web/public/favicon.svg -text
+.github/assets/gc-icon.svg -text
