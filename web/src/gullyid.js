@@ -53,6 +53,11 @@ export function loadGullyID(issuer = DEFAULT_GULLY_ID_ISSUER, timeoutMs = 10000)
   return pending;
 }
 
+/** Tests only: forget a finished or failed load. */
+export function resetGullyIDLoader() {
+  pending = null;
+}
+
 export function shortAddress(a) {
   return a && a.length > 12 ? a.slice(0, 6) + '…' + a.slice(-4) : a || '';
 }

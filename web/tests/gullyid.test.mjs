@@ -1,5 +1,6 @@
 // node --test tests/: the Gully ID SDK loader (v1.js first, legacy sdk.js fallback) and the "Sign in with Gully ID"
-// component rendering the official SDK button (GullySignIn.svelte compiled with svelte/compiler, mounted in happy-dom).
+// component rendering the official SDK button (GullySignIn.svelte compiled with svelte/compiler, mounted in happy-dom;
+// the test script runs node with --conditions=browser so `svelte` resolves to its client build).
 import { test, beforeEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, writeFileSync, mkdtempSync } from 'node:fs';
@@ -50,9 +51,10 @@ function fakeSdk() {
   };
 }
 
-const { loadGullyID, sdkUrls } = await import('../src/gullyid.js');
+const { loadGullyID, sdkUrls, resetGullyIDLoader } = await import('../src/gullyid.js');
 
 beforeEach(() => {
+  resetGullyIDLoader();
   delete win.GullyID;
   loaded.length = 0;
   renders.length = 0;
