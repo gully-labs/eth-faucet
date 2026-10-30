@@ -70,7 +70,7 @@ test('header nav reaches dev, docs, bridge, explorer, ecosystem and status, each
   for (const u of ['https://dev.gullychain.xyz/', 'https://docs.gullychain.xyz/', 'https://testnet-bridge.gullychain.xyz/', "CHAIN.explorer + '/'", 'https://gullychain.xyz/ecosystem/', 'https://status.gullylabs.xyz/']) assert.ok(nav.includes(u), u);
   assert.equal((nav.match(/icon: '/g) || []).length, 6, 'every nav item has an icon');
   assert.match(s, /<nav class="topnav"[\s\S]*?\{@html icon\(l\.icon\)\}<\/span><span class="tl">\{l\.name\}/);
-  assert.match(s, /\{ name: 'Ecosystem', href: 'https:\/\/gullychain\.xyz\/ecosystem\/' \}/, 'footer links the ecosystem page');
+  assert.match(s.slice(s.indexOf('const PRODUCTS = [')), /\{ name: 'Ecosystem', href: 'https:\/\/gullychain\.xyz\/ecosystem\/', icon: 'grid' \}/, 'footer links the ecosystem page');
 });
 
 test('gc-switcher 1.8.0 (kit v4 dark theme), loaded with its version on both pages', () => {

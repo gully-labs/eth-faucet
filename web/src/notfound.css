@@ -7,7 +7,8 @@
 .nf p { color: var(--gn-text-2); max-width: 52ch; }
 .nf-links { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
 .gn-body .nf-links a { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 14px; border: 1px solid var(--gn-line-strong); border-radius: var(--gn-r-pill); color: var(--gn-text); }
-.nf-links a .gn-ic { color: var(--gn-cyan); }
+.nf-links a .gn-ic { color: var(--gn-text-3); } /* nav icons: muted, mint on hover/active (owner rule 2026-10-30) */
+.nf-links a:hover .gn-ic, .nf-links a[aria-current="page"] .gn-ic { color: var(--gn-link); }
 .gn-body .nf-links a:hover { background: var(--gn-surface-2); }
 .nf-glb { margin-top: 24px; }
 .nf-glb img { height: 32px; width: auto; }
