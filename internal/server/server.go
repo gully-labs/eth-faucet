@@ -15,6 +15,9 @@ import (
 	"github.com/chainflag/eth-faucet/web"
 )
 
+// claimFailedMessage is what a client sees when the transfer itself fails (RPC down, nonce or gas trouble).
+const claimFailedMessage = "Transaction failed. The faucet could not send it right now, please try again in a few minutes."
+
 type Server struct {
 	chain.TxBuilder
 	cfg    *Config
@@ -113,7 +116,9 @@ func (s *Server) handleClaim() http.HandlerFunc {
 				"error":   err,
 				"address": address,
 			}).Error("Failed to send transaction")
-			renderJSON(w, claimResponse{Message: fmt.Sprintf("Transaction failed: %v", err)}, http.StatusInternalServerError)
+			// The raw error stays in the log: it can carry the RPC URL (net/http wraps it as `Post "<url>": ...`) and
+			// the node's own error text, neither of which belongs in a public response.
+			renderJSON(w, claimResponse{Message: claimFailedMessage}, http.StatusInternalServerError)
 			return
 		}
 
