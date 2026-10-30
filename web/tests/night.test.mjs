@@ -66,10 +66,10 @@ test('header nav reaches dev, docs, bridge, explorer, ecosystem and status, each
   assert.match(s, /\{ name: 'Ecosystem', href: 'https:\/\/gullychain\.xyz\/ecosystem\/' \}/, 'footer links the ecosystem page');
 });
 
-test('gc-switcher 1.7.0 (hover opens the grid), loaded with its version on both pages', () => {
+test('gc-switcher 1.7.1 (hover opens the grid), loaded with its version on both pages', () => {
   const js = readFileSync(join(WEB, 'public/gc-switcher.js'), 'utf8');
-  assert.match(js, /GC_SWITCHER_VERSION = '1\.7\.0'/);
-  for (const f of ['index.html', '404.html']) assert.match(readFileSync(join(WEB, f), 'utf8'), /gc-switcher\.js\?v=1\.7\.0/, f);
+  assert.match(js, /GC_SWITCHER_VERSION = '1\.7\.1'/);
+  for (const f of ['index.html', '404.html']) assert.match(readFileSync(join(WEB, f), 'utf8'), /gc-switcher\.js\?v=1\.7\.1/, f);
 });
 
 test('the page does not advertise the retired glUSD drip', () => {

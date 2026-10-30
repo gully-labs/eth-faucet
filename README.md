@@ -1,6 +1,6 @@
 <!-- gully-header:start -->
 <p align="center">
-  <a href="https://testnet-faucet.gullychain.xyz">
+  <a href="https://faucet.gullychain.xyz">
     <picture>
       <source media="(prefers-color-scheme: dark)" srcset=".github/assets/gullychain-wordmark-for-dark-bg.png">
       <img alt="Gully Chain" src=".github/assets/gullychain-wordmark-for-light-bg.png" width="360">
@@ -14,7 +14,7 @@
 
 <p align="center">
   <a href="https://gullychain.xyz"><img src="https://img.shields.io/badge/gullychain.xyz-01D9FA?style=for-the-badge&labelColor=000000&logo=googlechrome&logoColor=000000" alt="Website"></a>
-  <a href="https://testnet-faucet.gullychain.xyz"><img src="https://img.shields.io/badge/testnet--faucet.gullychain.xyz-0A0F1A?style=for-the-badge&labelColor=000000&logo=googlechrome&logoColor=01D9FA" alt="App"></a>
+  <a href="https://faucet.gullychain.xyz"><img src="https://img.shields.io/badge/testnet--faucet.gullychain.xyz-0A0F1A?style=for-the-badge&labelColor=000000&logo=googlechrome&logoColor=01D9FA" alt="App"></a>
   <a href="https://docs.gullychain.xyz"><img src="https://img.shields.io/badge/Docs-0A0F1A?style=for-the-badge&labelColor=000000&logo=readthedocs&logoColor=01D9FA" alt="Docs"></a>
   <a href="https://t.me/GullyChain"><img src="https://img.shields.io/badge/Telegram-0A0F1A?style=for-the-badge&labelColor=000000&logo=telegram&logoColor=26A5E4" alt="Telegram"></a>
   <a href="https://discord.com/invite/tY2ErsNNBp"><img src="https://img.shields.io/badge/Discord-0A0F1A?style=for-the-badge&labelColor=000000&logo=discord&logoColor=5865F2" alt="Discord"></a>
@@ -189,7 +189,7 @@ docker run -d -p 8080:8080 -e WEB3_PROVIDER=rpc_endpoint -e KEYSTORE=keystore_pa
 
 ### Gully Chain hosts
 
-The Gully Chain faucet is served at https://testnet-faucet.gullychain.xyz (canonical) and https://faucet.gullychain.xyz
+The Gully Chain faucet is served at https://faucet.gullychain.xyz (canonical) and https://faucet.gullychain.xyz
 (alias). The server has no Host check, so one container answers both names behind Caddy. The hCaptcha site must list
 both hostnames (hCaptcha dashboard > Sites > the faucet site key > Domains), or the widget fails on the missing one.
 A Gully ID client used with `-gullyid.client` needs both origins in its allowed origins / redirect URIs.

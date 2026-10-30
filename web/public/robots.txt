@@ -2,4 +2,4 @@ User-agent: *
 Allow: /
 Disallow: /api/
 
-Sitemap: https://testnet-faucet.gullychain.xyz/sitemap.xml
+Sitemap: https://faucet.gullychain.xyz/sitemap.xml
