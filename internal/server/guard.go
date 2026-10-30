@@ -145,7 +145,7 @@ func (g *Guard) budgetLocked(amount *big.Int, dev bool) string {
 		now := g.store.now().Unix()
 		if now-atomic.LoadInt64(&g.lastWarn) > 3600 {
 			atomic.StoreInt64(&g.lastWarn, now)
-			g.alert.Alert(fmt.Sprintf("Gully faucet: %s budget of %s %s reached (%s paid). Claims paused until it frees up; check faucet.gullychain.xyz logs for farming.", label, weiToEth(capv), g.symbol, weiToEth(spent)))
+			g.alert.Alert(fmt.Sprintf("Gully faucet: %s budget of %s %s reached (%s paid). Claims paused until it frees up; check testnet-faucet.gullychain.xyz logs for farming.", label, weiToEth(capv), g.symbol, weiToEth(spent)))
 		}
 		return fmt.Sprintf("The faucet has handed out its %s budget. Please try again in %s.", label, humanWait(free))
 	}

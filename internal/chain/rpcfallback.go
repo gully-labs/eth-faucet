@@ -17,12 +17,12 @@ import (
 )
 
 // DefaultProviders is the ordered public RPC list of Gully Chain Testnet (chain 485590), used when no provider is
-// configured. First healthy URL wins.
+// configured. First healthy URL wins. rpc.gullychain.xyz is deliberately absent: it becomes the mainnet (48559) RPC on
+// cutover day, and a testnet faucet must never fall back to it.
 var DefaultProviders = []string{
-	"https://rpc.gullychain.xyz",
+	"https://testnet-rpc.gullychain.xyz",
 	"https://rpc.gullyrpc.xyz/gullychain/evm/485590",
 	"https://rpc2.gullychain.xyz",
-	"https://testnet-rpc.gullychain.xyz",
 }
 
 const (
