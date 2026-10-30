@@ -5,8 +5,8 @@
 //   node scripts/sync-gullychain-night.mjs --check                                       re-hash them against the lock
 //
 // Writes src/night/{tokens.css,components.css,charts.js} (imported by src/main.js) and public/assets/fonts/
-// {exo2-600.woff2,exo2-800.woff2,OFL.txt} (tokens.css loads /assets/fonts/exo2-*.woff2). Never edit those files here:
-// change them in gully-ops and re-run this script with the new commit.
+// {inter-var.woff2,Inter-OFL.txt} (GN 2.0 = brand kit v4: tokens.css loads /assets/fonts/inter-var.woff2). Never edit
+// those files here: change them in gully-ops and re-run this script with the new commit.
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -15,14 +15,13 @@ import { fileURLToPath } from 'node:url';
 
 const WEB = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const LOCK = join(WEB, 'night.lock.json');
-const DEFAULT_REF = '1e17459e'; // gully-ops feat/gullychain-builder-site: "shared black design tokens"
+const DEFAULT_REF = '8a81bed4'; // gully-ops feat/gc-brand-v4: "GullyChain brand kit v4: GN 2.0 tokens"
 export const FILES = [
   ['sites/_shared/gullychain-night/tokens.css', 'src/night/tokens.css'],
   ['sites/_shared/gullychain-night/components.css', 'src/night/components.css'],
   ['sites/_shared/gullychain-night/charts.js', 'src/night/charts.js'],
-  ['sites/_shared/brand/fonts/exo2-600.woff2', 'public/assets/fonts/exo2-600.woff2'],
-  ['sites/_shared/brand/fonts/exo2-800.woff2', 'public/assets/fonts/exo2-800.woff2'],
-  ['sites/_shared/brand/fonts/OFL.txt', 'public/assets/fonts/OFL.txt'],
+  ['sites/_shared/brand/fonts/inter-var.woff2', 'public/assets/fonts/inter-var.woff2'],
+  ['sites/_shared/brand/fonts/Inter-OFL.txt', 'public/assets/fonts/Inter-OFL.txt'],
 ];
 const sha = (buf) => createHash('sha256').update(buf).digest('hex');
 

@@ -3,7 +3,7 @@
   import { getAddress } from '@ethersproject/address';
   import GullySignIn from './GullySignIn.svelte';
 
-  // GullyChain testnet faucet (gully-labs fork): brand kit v3 in the landing's "Terminal" language. The faucet logic,
+  // GullyChain testnet faucet (gully-labs fork): brand kit v4 (Gully Chain Night 2.0). The faucet logic,
   // flags and API below are upstream's; only the page changed.
   const CHAIN = {
     id: 485590,
@@ -19,7 +19,7 @@
     { name: 'Explorer', href: CHAIN.explorer + '/', icon: 'search' },
   ];
   // Header nav (design-gap audit 2026-10-29): every key Gully Chain surface one click from the faucet, icon + label, same
-  // tab. The <gc-switcher> (1.7.0, opens on hover) carries the full product grid; below 900 px only the switcher shows.
+  // tab. The <gc-switcher> (1.7.0, opens on hover) carries the full product grid; below 900 px the same items sit in the menu panel.
   const NAV = [
     { name: 'Developers', href: 'https://dev.gullychain.xyz/', icon: 'code' },
     { name: 'Docs', href: 'https://docs.gullychain.xyz/', icon: 'book' },
@@ -33,25 +33,25 @@
   const RETIRED_TOKENS = ['glUSD'];
   // Footer: every GullyChain product, same tab (one product family).
   const PRODUCTS = [
-    { name: 'GullyChain', href: 'https://gullychain.xyz/' },
-    { name: 'App', href: 'https://kre8.fun/' },
-    { name: 'Bridge', href: 'https://testnet-bridge.gullychain.xyz/' },
-    { name: 'Explorer', href: CHAIN.explorer + '/' },
-    { name: 'Sentry', href: 'https://sentry.gullychain.xyz/' },
-    { name: 'Docs', href: 'https://docs.gullychain.xyz/' },
-    { name: 'Developers', href: 'https://dev.gullychain.xyz/' },
-    { name: 'Ecosystem', href: 'https://gullychain.xyz/ecosystem/' },
-    { name: 'Status', href: 'https://status.gullylabs.xyz/' },
+    { name: 'GullyChain', href: 'https://gullychain.xyz/', icon: 'globe' },
+    { name: 'App', href: 'https://kre8.fun/', icon: 'appwin' },
+    { name: 'Bridge', href: 'https://testnet-bridge.gullychain.xyz/', icon: 'arrows' },
+    { name: 'Explorer', href: CHAIN.explorer + '/', icon: 'search' },
+    { name: 'Sentry', href: 'https://sentry.gullychain.xyz/', icon: 'shield' },
+    { name: 'Docs', href: 'https://docs.gullychain.xyz/', icon: 'book' },
+    { name: 'Developers', href: 'https://dev.gullychain.xyz/', icon: 'code' },
+    { name: 'Ecosystem', href: 'https://gullychain.xyz/ecosystem/', icon: 'grid' },
+    { name: 'Status', href: 'https://status.gullylabs.xyz/', icon: 'activity' },
   ];
   const SOURCE = 'https://github.com/gully-labs/eth-faucet';
   // Every other Gully product is listed once, on the docs ecosystem page (owner rule 2026-10-29: Gully Chain nav only).
   const ECOSYSTEM = 'https://docs.gullychain.xyz/ecosystem/';
   // Official GullyChain channels (every GullyChain footer carries them).
   const SOCIALS = [
-    { name: 'Telegram', href: 'https://t.me/GullyChain' },
-    { name: 'Deploys', href: 'https://t.me/GullyChainDeploys' },
-    { name: 'Discord', href: 'https://discord.com/invite/tY2ErsNNBp' },
-    { name: 'X', href: 'https://x.com/Gully_Labs' },
+    { name: 'Telegram', href: 'https://t.me/GullyChain', icon: 'send' },
+    { name: 'Deploys', href: 'https://t.me/GullyChainDeploys', icon: 'rocket' },
+    { name: 'Discord', href: 'https://discord.com/invite/tY2ErsNNBp', icon: 'chat' },
+    { name: 'X', href: 'https://x.com/Gully_Labs', icon: 'at' },
   ];
 
   // Lucide icons (ISC, lucide.dev): 24-unit paths, drawn at 20px, stroke 1.75
@@ -75,7 +75,20 @@
     radio: '<path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9"/><path d="M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5"/><circle cx="12" cy="12" r="2"/><path d="M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5"/><path d="M19.1 4.9C23 8.8 23 15.1 19.1 19"/>',
     clock: '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',
     settings: '<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>',
+    // nav, mobile menu and footer (owner rule 2026-10-30: every nav item on every Gully Chain surface has an icon)
+    menu: '<path d="M4 12h16"/><path d="M4 18h16"/><path d="M4 6h16"/>',
+    globe: '<circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/>',
+    appwin: '<rect x="2" y="4" width="20" height="16" rx="2"/><path d="M10 4v4"/><path d="M2 8h20"/><path d="M6 4v4"/>',
+    shield: '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/>',
+    branch: '<line x1="6" x2="6" y1="3" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/>',
+    layers: '<path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z"/><path d="M2 12a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 12"/><path d="M2 17a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 17"/>',
+    send: '<path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/>',
+    rocket: '<path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/>',
+    chat: '<path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/>',
+    at: '<circle cx="12" cy="12" r="4"/><path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-4 8"/>',
   };
+  // Mobile menu: below 900 px the header nav folds into this panel (the gc-switcher still carries the product grid)
+  let menuOpen = false;
   const icon = (n) => `<svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[n] || ICONS.info}</svg>`;
 
   let input = null;
@@ -506,18 +519,21 @@
 <header class="nav">
   <div class="wrap">
     <div class="brand">
-      <!-- brand kit v3 logo/gullychain-logo-transparent.png (1315x305, byte for byte) on night; the switcher hides its own
-           logo (logo="off") so the mark shows once. gc-switcher: public/gc-switcher.js, canonical gully-ops sites/_shared/gc-switcher -->
-      <a class="logo" href="https://gullychain.xyz/" aria-label="Gully Chain home"><img src="/brand/logo/gullychain-logo-transparent.png" width="155" height="36" alt="Gully Chain" /></a>
+      <!-- brand kit v4 logo/gc-icon.svg (byte for byte) on night; kit v4 has no wordmark file, so the icon stands alone.
+           The switcher hides its own logo (logo="off") so the mark shows once. gc-switcher: public/gc-switcher.js, canonical gully-ops sites/_shared/gc-switcher -->
+      <a class="logo" href="https://gullychain.xyz/" aria-label="Gully Chain home"><img src="/brand/logo/gc-icon.svg" width="32" height="32" alt="Gully Chain" /></a>
       <gc-switcher current="faucet" theme="dark" logo="off"></gc-switcher>
     </div>
     <nav class="topnav" aria-label="Gully Chain"><ul>{#each NAV as l}<li><a href={l.href} title={l.name}><span class="ic">{@html icon(l.icon)}</span><span class="tl">{l.name}</span></a></li>{/each}</ul></nav>
     <div class="navr">
       <span class="pill" class:live={blockNumber != null} class:flash={blockBumped} role="status" aria-live="polite" title="Latest block from {CHAIN.rpc}"><span class="dot" aria-hidden="true"></span><span>{blockNumber == null ? 'Connecting' : 'Live · #' + fmtBlock(blockNumber)}</span></span>
       <button type="button" class="btn ter sm hide-s" onclick={addToWallet} disabled={addingChain}><span class="ic">{@html icon(networkAdded ? 'check' : 'wallet')}</span>Add to wallet</button>
+      <button type="button" class="menubtn" aria-label="Menu" aria-expanded={menuOpen} aria-controls="mnav" onclick={() => (menuOpen = !menuOpen)}><span class="ic">{@html icon(menuOpen ? 'x' : 'menu')}</span></button>
     </div>
   </div>
+  {#if menuOpen}<nav class="mnav" id="mnav" aria-label="Gully Chain menu"><ul>{#each NAV as l}<li><a href={l.href} onclick={() => (menuOpen = false)}><span class="ic">{@html icon(l.icon)}</span><span>{l.name}</span></a></li>{/each}</ul></nav>{/if}
 </header>
+<svelte:window onkeydown={(e) => { if (e.key === 'Escape') menuOpen = false; }} />
 
 <main>
   <section class="hero" aria-labelledby="h1">
@@ -661,8 +677,8 @@
         </div>
       </div>
       <div class="mascot" aria-hidden="true">
-        <!-- kit mascot (byte for byte) on the night ground -->
-        <img src="/brand/mascots/gullychain-mascot-builder.png" width="370" height="385" alt="" loading="lazy" />
+        <!-- kit v4 mascots/mascot-builder.png (630x502, byte for byte, uncropped) on the night ground -->
+        <img src="/brand/mascots/mascot-builder.png" width="630" height="502" alt="" loading="lazy" />
         <div class="fade"></div>
       </div>
     </div>
@@ -671,12 +687,12 @@
 
 <footer>
   <div class="wrap">
-    <div><a class="fwm" href="https://gullychain.xyz"><img class="fwm-t" src="/brand/logo/gullychain-wordmark-for-dark-bg.svg" width="141" height="24" alt="Gully Chain" loading="lazy" /></a><span class="tag">Testnet faucet · chain {CHAIN.id}</span></div>
-    <nav aria-label="GullyChain products"><ul>{#each PRODUCTS as l}<li><a href={l.href}>{l.name}</a></li>{/each}<li><a href={SOURCE} target="_blank" rel="noopener noreferrer">Source</a></li><li><a href={ECOSYSTEM} target="_blank" rel="noopener noreferrer">Gully ecosystem →</a></li></ul></nav>
-    <ul aria-label="Official GullyChain channels">{#each SOCIALS as l}<li><a href={l.href} target="_blank" rel="noopener noreferrer">{l.name}</a></li>{/each}</ul>
+    <div><a class="fwm" href="https://gullychain.xyz" aria-label="Gully Chain home"><img src="/brand/logo/gc-icon.svg" width="32" height="32" alt="Gully Chain" loading="lazy" /></a><span class="tag">Testnet faucet · chain {CHAIN.id}</span></div>
+    <nav class="fnav" aria-label="GullyChain products"><ul>{#each PRODUCTS as l}<li><a href={l.href}><span class="ic">{@html icon(l.icon)}</span>{l.name}</a></li>{/each}<li><a href={SOURCE} target="_blank" rel="noopener noreferrer"><span class="ic">{@html icon('branch')}</span>Source</a></li><li><a href={ECOSYSTEM} target="_blank" rel="noopener noreferrer"><span class="ic">{@html icon('layers')}</span>Gully ecosystem →</a></li></ul></nav>
+    <ul class="fnav" aria-label="Official GullyChain channels">{#each SOCIALS as l}<li><a href={l.href} target="_blank" rel="noopener noreferrer"><span class="ic">{@html icon(l.icon)}</span>{l.name}</a></li>{/each}</ul>
     <div class="fbot">
       <p class="copy2">Testnet only. Tokens have no value. MIT, a fork of chainflag/eth-faucet.</p>
-      <span class="fbadges"><a class="gcb" href="https://gullychain.xyz" aria-label="Powered by GullyChain"><img src="/brand/badges/gullychain-powered-by-dark.svg" srcset="/brand/badges/gullychain-powered-by-dark.png 1x, /brand/badges/gullychain-powered-by-dark-2x.png 2x, /brand/badges/gullychain-powered-by-dark-3x.png 3x" width="142" height="42" alt="Powered by GullyChain" loading="lazy" /></a>
+      <span class="fbadges"><a class="gcb" href="https://gullychain.xyz" aria-label="Powered by GullyChain"><img src="/brand/badges/badge-dark.png" width="180" height="48" alt="Powered by GullyChain" loading="lazy" /></a>
       <a class="glb" href="https://gullylabs.xyz" target="_blank" rel="noopener noreferrer" aria-label="Powered by Gully Labs (opens in a new tab)"><img src="/brand/gully-labs/powered-by-gully-labs-dark.png" srcset="/brand/gully-labs/powered-by-gully-labs-dark.png 1x, /brand/gully-labs/powered-by-gully-labs-dark-2x.png 2x, /brand/gully-labs/powered-by-gully-labs-dark-3x.png 3x" width="127" height="32" alt="Powered by Gully Labs" loading="lazy" /></a></span>
     </div>
   </div>
@@ -700,7 +716,7 @@
 
 <style>
   /* Gully Chain Night (GN, gully-ops sites/_shared/gullychain-night): black ground, ink cards with a muted 18% line,
-     Exo 2 600/800, cyan accent, green for live and payouts, signature pill buttons, live animated charts (bars grow,
+     Inter (GN 2.0 = brand kit v4), emerald accent, mint for live and payouts, signature pill buttons, live animated charts (bars grow,
      sparklines grow) from the public RPC only, the builder mascot on night. Every colour is a --gn-* token (aliased
      in App.svelte); motion is off under prefers-reduced-motion. */
   .wrap { width: 100%; max-width: var(--gn-maxw); margin: 0 auto; padding: 0 var(--gn-gutter); }
@@ -725,13 +741,25 @@
   .nav .wrap { display: flex; align-items: center; justify-content: space-between; height: var(--gn-header-h); gap: 14px; }
   .brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
   .logo { display: inline-flex; flex: none; line-height: 0; border-radius: var(--gn-r-sm); }
-  .logo img { height: 36px; width: auto; max-width: none; }
+  .logo img { width: 32px; height: 32px; max-width: none; }
   .topnav { flex: 1 1 auto; min-width: 0; display: flex; justify-content: center; }
   .topnav ul { list-style: none; margin: 0; padding: 0; display: flex; gap: 2px; }
   .topnav a { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 12px; border-radius: var(--gn-r-pill); color: var(--gn-text-2); font-size: 14px; text-decoration: none; white-space: nowrap; }
-  .topnav a .ic { color: var(--gn-muted); }
+  /* nav icons (owner rule 2026-10-30): Lucide 20 px, stroke 1.75, muted by default, mint when active or hovered */
+  .topnav a .ic, .mnav a .ic, footer .fnav a .ic { width: 20px; height: 20px; color: var(--gn-text-3); }
+  .topnav a[aria-current="page"] .ic, .mnav a[aria-current="page"] .ic, footer .fnav a[aria-current="page"] .ic { color: var(--gn-link); }
   .topnav a:hover { color: var(--gn-text); background: var(--gn-surface-2); }
-  .topnav a:hover .ic { color: var(--gn-cyan); }
+  .topnav a:hover .ic, .mnav a:hover .ic, footer .fnav a:hover .ic { color: var(--gn-link); }
+  .menubtn { display: none; flex: none; align-items: center; justify-content: center; width: 40px; height: 40px; padding: 0; border: 1px solid var(--border); border-radius: var(--gn-r-pill); background: var(--gn-surface); color: var(--gn-text-2); cursor: pointer; }
+  .menubtn .ic { width: 20px; height: 20px; color: currentColor; }
+  .menubtn:hover { color: var(--gn-text); }
+  .mnav { border-top: 1px solid var(--border); background: var(--gn-black); }
+  .mnav ul { list-style: none; margin: 0 auto; padding: 8px var(--gn-gutter) 12px; max-width: var(--gn-maxw); display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; }
+  .mnav a { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 12px; border-radius: var(--gn-r-sm); color: var(--gn-text-2); font-size: 15px; }
+  .mnav a:hover { color: var(--gn-text); background: var(--gn-surface-2); }
+  @media (min-width: 900px) { .mnav { display: none; } }
+  @media (max-width: 899px) { .menubtn { display: inline-flex; } }
+  footer .fnav a { display: inline-flex; align-items: center; gap: 6px; }
   .topnav a:focus-visible { outline: none; box-shadow: var(--gn-focus); }
   @media (max-width: 1239px) { .topnav .tl { display: none; } .topnav a { padding: 0 10px; } }
   @media (max-width: 899px) { .topnav { display: none; } }
@@ -867,7 +895,7 @@
   .band .muted { font-size: 14px; }
   .band .ctas { margin-top: 4px; }
   .mascot { position: relative; min-height: 200px; border-radius: var(--gn-r); background: var(--gn-night); overflow: hidden; pointer-events: none; }
-  .mascot img { position: absolute; right: 0; bottom: 0; height: 100%; max-height: 230px; width: auto; max-width: none; transition: transform 0.3s ease; }
+  .mascot img { position: absolute; inset: 8px; width: calc(100% - 16px); height: calc(100% - 16px); max-width: none; object-fit: contain; object-position: center bottom; transition: transform 0.3s ease; }
   .group.band:hover .mascot img { transform: scale(1.04) rotate(-2deg); }
   .mascot .fade { display: none; }
 
@@ -879,13 +907,12 @@
   footer ul a:hover { color: var(--text); }
   footer .tag { font-size: 12px; color: var(--muted-c); margin-top: 8px; display: block; }
   footer .copy2 { font-size: 12px; color: var(--muted-c); width: 100%; margin: 0; }
-  /* brand kit v3 logo/gullychain-wordmark-for-dark-bg.svg (byte for byte) */
+  /* brand kit v4 logo/gc-icon.svg (byte for byte); kit v4 has no wordmark file */
   footer .fwm { display: inline-flex; align-items: center; line-height: 0; border-radius: var(--gn-r-sm); }
-  footer .fwm img { display: block; flex: none; max-width: none; }
-  footer .fwm .fwm-t { width: auto; height: 24px; }
+  footer .fwm img { display: block; flex: none; max-width: none; width: 32px; height: 32px; }
   .fbadges { display: inline-flex; align-items: center; gap: 12px; flex-wrap: wrap; }
   .gcb { display: inline-flex; line-height: 0; flex: none; border-radius: var(--gn-r-sm); }
-  .gcb img { width: 142px; height: 42px; }
+  .gcb img { width: 180px; height: 48px; }
   footer .fbot { width: 100%; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; padding-top: 14px; border-top: 1px solid var(--border); }
   footer .fbot .copy2 { width: auto; }
   .glb { display: inline-flex; line-height: 0; flex: none; border-radius: var(--gn-r-sm); }
