@@ -2,6 +2,7 @@
   import { onMount, onDestroy } from 'svelte';
   import { getAddress } from '@ethersproject/address';
   import GullySignIn from './GullySignIn.svelte';
+  import { parseTarget, targetCheck, appName, sameAddress } from './target.js';
 
   // GullyChain testnet faucet (gully-labs fork): brand kit v4 (Gully Chain Night 2.0). The faucet logic,
   // flags and API below are upstream's; only the page changed.
@@ -97,8 +98,22 @@
   // overwrite an address the visitor typed; clear it again on sign-out only if it is still the filled-in one.
   let gullyFilled = null;
   let gullyToken = null; // session access token, sent as Authorization: Bearer when the faucet requires sign-in
+  let gullyMain = null; // the Gully ID main wallet (profile `wallet`)
+  let gullyWallets = []; // every wallet of the Gully ID (profile `wallets`), to tell "yours, but not kre8's" apart
+  // An app link (kre8 "Get test ETH": ?to=<account>&from=kre8) locks the field to the account the app uses, so the
+  // Gully ID sign-in below can not swap it for the main wallet (owner report 2026-10-31).
+  const target = typeof window !== 'undefined' ? parseTarget(window.location.search) : { to: null, from: null };
+  let lockedTo = target.to;
+  if (lockedTo) input = lockedTo;
+  let confirmOther = false; // the person saw the "not your account" warning and pressed Send again
   function onGullyWallet(address, user, session) {
     gullyToken = session?.accessToken || null;
+    gullyMain = address || null;
+    gullyWallets = Array.isArray(user?.wallets) ? user.wallets : [];
+    if (lockedTo) {
+      if (step < 2 && address) step = 2;
+      return;
+    }
     const current = (input || '').trim();
     if (address) {
       if (!current || current === gullyFilled) input = address;
@@ -109,6 +124,19 @@
       gullyFilled = null;
     }
   }
+  function unlockTarget() {
+    lockedTo = null;
+    setTimeout(() => document.getElementById('address')?.focus(), 0);
+  }
+  function useMyGullyAccount() {
+    if (!check.expected) return;
+    input = check.expected;
+    fieldError = '';
+  }
+  $: check = targetCheck({ field: input, signedIn: !!gullyMain || !!gullyToken, gullyMain, gullyWallets, lockedTo: target.to, from: target.from });
+  // a new address in the field needs a new confirmation
+  $: input, (confirmOther = false);
+
   let faucetInfo = {
     account: '0x0000000000000000000000000000000000000000',
     network: 'testnet',
@@ -418,6 +446,15 @@
         return;
       }
 
+      // Signed in with Gully ID and paying another address than the Gully account kre8 uses: warn once, pay on the
+      // second press (the warning above the field says why and offers "Use my Gully account").
+      const c = targetCheck({ field: address, signedIn: !!gullyMain || !!gullyToken, gullyMain, gullyWallets, lockedTo: target.to, from: target.from });
+      if (c.state === 'mismatch' && !confirmOther) {
+        confirmOther = true;
+        notify({ title: c.title, message: 'Tap "Use my Gully account", or press Send again to pay this address anyway.', type: 'is-warning', icon: 'wallet', ms: 9000 });
+        return;
+      }
+
       // Prepare request headers
       const headers = {
         'Content-Type': 'application/json',
@@ -485,6 +522,8 @@
       } else {
         const errorMessage = data?.msg || 'Request failed';
         toast({ message: errorMessage, type: 'is-danger' });
+        // an app account that is not on chain yet (kre8 passkey accounts go on chain with their first action)
+        if (target.from && sameAddress(address, target.to) && /no history/i.test(errorMessage)) fieldError = `Your ${appName(target.from)} account is not on chain yet. In ${appName(target.from)}, tap "Get test ETH" again: it puts the account on chain first (free), then sends you here.`;
       }
     } catch (error) {
       console.error('Request failed:', error);
@@ -552,7 +591,7 @@
         <div id="hcaptcha" data-size="invisible"></div>
         <form id="claim" class="claim" onsubmit={(e) => { e.preventDefault(); if (!isLoading) handleRequest(); }}>
           {#if faucetInfo.gullyid_client}
-            <GullySignIn clientId={faucetInfo.gullyid_client} issuer={faucetInfo.gullyid_issuer || undefined} required={!!faucetInfo.signin_required} onwallet={onGullyWallet} />
+            <GullySignIn clientId={faucetInfo.gullyid_client} issuer={faucetInfo.gullyid_issuer || undefined} required={!!faucetInfo.signin_required} onwallet={onGullyWallet} lockedNote={lockedTo ? `the claim pays your ${appName(target.from)} account ${short(lockedTo)}` : ''} />
           {/if}
           <label class="lab" for="address">Your address or ENS name</label>
           <div class="field">
@@ -564,6 +603,8 @@
               autocomplete="off"
               spellcheck="false"
               placeholder="0x… or name.eth"
+              readonly={!!lockedTo}
+              data-testid="address"
               aria-invalid={fieldError ? 'true' : undefined}
               aria-describedby={fieldError ? 'address-err' : undefined}
               oninput={() => (fieldError = '')}
@@ -578,11 +619,23 @@
             <button type="submit" class="btn pri" disabled={isLoading} aria-busy={isLoading}>
               {#if isLoading}
                 <span class="spinner" aria-hidden="true"></span>Sending
+              {:else if confirmOther && check.state === 'mismatch'}
+                <span class="ic">{@html icon('droplet')}</span>Send to this address anyway<span class="ic ar">{@html icon('arrow')}</span>
               {:else}
                 <span class="ic">{@html icon('droplet')}</span>Request {faucetInfo.payout} {faucetInfo.symbol}<span class="ic ar">{@html icon('arrow')}</span>
               {/if}
             </button>
           </div>
+          {#if lockedTo}
+            <p class="lockline" data-testid="locked-to"><span class="ic">{@html icon('check')}</span><span>Pays your {appName(target.from)} account <span class="mono">{short(lockedTo)}</span>, the one {appName(target.from)} shows your balance for.</span> <button type="button" class="linkbtn" onclick={unlockTarget}>Use another address</button></p>
+          {/if}
+          {#if check.state === 'mismatch'}
+            <div class="twarn" role="alert" data-testid="not-your-account">
+              <p class="twarn-h"><span class="ic">{@html icon('info')}</span>{check.title}</p>
+              <p class="twarn-s">{check.detail}</p>
+              <button type="button" class="btn sec sm" onclick={useMyGullyAccount} data-testid="use-my-gully-account"><span class="ic">{@html icon('wallet')}</span>Use my Gully account <span class="mono">{short(check.expected)}</span></button>
+            </div>
+          {/if}
           {#if fieldError}<p id="address-err" class="ferr">{fieldError}</p>{/if}
           {#if claimResult}
             <div class="claim-result" role="status" data-testid="claim-result">
@@ -830,6 +883,17 @@
   .input:focus { border-color: var(--gn-cyan); box-shadow: 0 0 0 3px var(--gn-info-bg); }
   .input[aria-invalid='true'] { border-color: var(--danger); }
   .ferr { margin: 0; font-size: 13px; color: var(--danger); }
+  /* app link (?to=) lock + "not your kre8 / Gully ID account" warning (Gully Chain Night warn tokens) */
+  .lockline { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; font-size: 13px; color: var(--text-2); }
+  .lockline .ic { width: 16px; height: 16px; color: var(--ok); flex: none; }
+  .lockline .mono { color: var(--gn-text); }
+  .linkbtn { all: unset; cursor: pointer; color: var(--link); font-weight: var(--gn-w-bold); text-decoration: underline; text-underline-offset: 2px; }
+  .linkbtn:focus-visible { box-shadow: var(--gn-focus); border-radius: 4px; }
+  .twarn { display: grid; gap: 8px; justify-items: start; padding: 12px 14px; border-radius: var(--gn-r); border: 1px solid color-mix(in srgb, var(--gn-warn) 45%, transparent); background: var(--gn-warn-bg); }
+  .twarn-h { margin: 0; display: flex; align-items: center; gap: 8px; font-weight: var(--gn-w-bold); color: var(--gn-text); }
+  .twarn-h .ic { width: 18px; height: 18px; color: var(--gn-warn); flex: none; }
+  .twarn-s { margin: 0; font-size: 13px; color: var(--text-2); }
+  .twarn .mono { font-family: var(--f-mono); }
   .hint { margin: 0; font-size: 13px; color: var(--muted-c); overflow-wrap: anywhere; }
   .addr { background: none; border: 0; padding: 0; color: var(--text-2); font-size: 12.5px; cursor: copy; border-bottom: 1px dashed var(--border-2); overflow-wrap: anywhere; word-break: break-all; text-align: left; }
   .addr:hover { border-bottom-color: var(--gn-cyan); color: var(--link); }
