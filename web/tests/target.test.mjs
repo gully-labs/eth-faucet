@@ -62,8 +62,16 @@ test('targetCheck: with an app link the expected account is the app account, not
 
 const WEB = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const win = new Window({ url: 'https://faucet.gullychain.xyz/' });
-for (const k of ['window', 'document', 'navigator', 'HTMLElement', 'Element', 'Node', 'Text', 'Comment', 'DocumentFragment', 'MutationObserver', 'getComputedStyle', 'requestAnimationFrame', 'cancelAnimationFrame', 'Event', 'KeyboardEvent', 'location', 'customElements', 'HTMLInputElement', 'HTMLFormElement', 'HTMLButtonElement', 'SVGElement', 'localStorage', 'sessionStorage', 'CustomEvent', 'URLSearchParams']) {
-  if (!(k in globalThis) || ['window', 'document', 'location', 'customElements', 'localStorage', 'sessionStorage'].includes(k)) Object.defineProperty(globalThis, k, { value: k === 'window' ? win : win[k], configurable: true, writable: true });
+// every DOM class / helper the compiled page may touch (HTMLMediaElement, customElements, …): happy-dom's, unless Node
+// already has its own (Event, URL, fetch, …); window, document, location and storage always come from happy-dom
+const FORCE = new Set(['window', 'document', 'location', 'customElements', 'localStorage', 'sessionStorage', 'navigator']);
+for (const k of new Set([...Object.getOwnPropertyNames(win), ...Object.getOwnPropertyNames(Object.getPrototypeOf(win))])) {
+  if (k === 'constructor' || (k in globalThis && !FORCE.has(k))) continue;
+  let v;
+  try { v = k === 'window' ? win : win[k]; } catch { continue; }
+  if (v === undefined) continue;
+  if (typeof v === 'function' && /^[a-z]/.test(k)) v = v.bind(win);
+  try { Object.defineProperty(globalThis, k, { value: v, configurable: true, writable: true }); } catch {}
 }
 
 let signedIn = null; // the fake Gully ID session the SDK reports
