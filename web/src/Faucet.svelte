@@ -884,8 +884,9 @@
   .input[aria-invalid='true'] { border-color: var(--danger); }
   .ferr { margin: 0; font-size: 13px; color: var(--danger); }
   /* app link (?to=) lock + "not your kre8 / Gully ID account" warning (Gully Chain Night warn tokens) */
-  .lockline { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; font-size: 13px; color: var(--text-2); }
-  .lockline .ic { width: 16px; height: 16px; color: var(--ok); flex: none; }
+  .lockline { margin: 0; display: block; font-size: 13px; line-height: 1.6; color: var(--text-2); }
+  .lockline .ic { display: inline-flex; width: 16px; height: 16px; margin-right: 6px; vertical-align: -3px; color: var(--ok); }
+  .lockline .linkbtn { margin-left: 6px; }
   .lockline .mono { color: var(--gn-text); }
   .linkbtn { all: unset; cursor: pointer; color: var(--link); font-weight: var(--gn-w-bold); text-decoration: underline; text-underline-offset: 2px; }
   .linkbtn:focus-visible { box-shadow: var(--gn-focus); border-radius: 4px; }
