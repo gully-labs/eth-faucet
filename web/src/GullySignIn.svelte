@@ -8,7 +8,7 @@
   import { onMount, onDestroy } from 'svelte';
   import { loadGullyID, shortAddress, DEFAULT_GULLY_ID_ISSUER } from './gullyid.js';
 
-  let { clientId, issuer = DEFAULT_GULLY_ID_ISSUER, required = false, onwallet = () => {} } = $props();
+  let { clientId, issuer = DEFAULT_GULLY_ID_ISSUER, required = false, onwallet = () => {}, lockedNote = '' } = $props();
 
   let host = $state(null);
   let ready = $state(false);
@@ -70,7 +70,7 @@
         {#if safeAvatar(user.avatar)}
           <img class="gid-av" src={safeAvatar(user.avatar)} alt="" width="22" height="22" referrerpolicy="no-referrer" />
         {/if}
-        <span>Signed in as <b>{user.gullyName || user.name}</b>{#if user.wallet?.address} · address filled with your main wallet <span class="mono">{shortAddress(user.wallet.address)}</span>{:else} · no wallet linked yet{/if}</span>
+        <span>Signed in as <b>{user.gullyName || user.name}</b>{#if lockedNote} · {lockedNote}{:else if user.wallet?.address} · address filled with your main wallet <span class="mono">{shortAddress(user.wallet.address)}</span>{:else} · no wallet linked yet{/if}</span>
       </p>
     {:else}
       {#if required}
