@@ -63,7 +63,7 @@ test('targetCheck: with an app link the expected account is the app account, not
 const WEB = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const win = new Window({ url: 'https://faucet.gullychain.xyz/' });
 for (const k of ['window', 'document', 'navigator', 'HTMLElement', 'Element', 'Node', 'Text', 'Comment', 'DocumentFragment', 'MutationObserver', 'getComputedStyle', 'requestAnimationFrame', 'cancelAnimationFrame', 'Event', 'KeyboardEvent', 'location', 'customElements', 'HTMLInputElement', 'HTMLFormElement', 'HTMLButtonElement', 'SVGElement', 'localStorage', 'sessionStorage', 'CustomEvent', 'URLSearchParams']) {
-  if (!(k in globalThis) || ['window', 'document', 'location', 'Event', 'KeyboardEvent', 'customElements', 'localStorage', 'sessionStorage', 'CustomEvent'].includes(k)) Object.defineProperty(globalThis, k, { value: k === 'window' ? win : win[k], configurable: true, writable: true });
+  if (!(k in globalThis) || ['window', 'document', 'location', 'customElements', 'localStorage', 'sessionStorage'].includes(k)) Object.defineProperty(globalThis, k, { value: k === 'window' ? win : win[k], configurable: true, writable: true });
 }
 
 let signedIn = null; // the fake Gully ID session the SDK reports
