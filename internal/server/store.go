@@ -19,7 +19,7 @@ type Store struct {
 	now     func() time.Time
 	Limits  map[string]int64 `json:"limits"`  // key -> unix expiry
 	Payouts []payoutRecord   `json:"payouts"` // last 24 h
-	// token drip (glUSD): its own payout log (last 24 h) and the lifetime total, both in token base units
+	// token drip (USDC.e): its own payout log (last 24 h) and the lifetime total, both in token base units
 	TokenPayouts []payoutRecord `json:"token_payouts,omitempty"`
 	TokenTotal   string         `json:"token_total,omitempty"`
 }

@@ -17,7 +17,7 @@ import (
 	"github.com/urfave/negroni/v3"
 )
 
-const glusd = "0xDBE84bE6496Fb3d07F601548555ec7Acc4CeBa8F"
+const usdce = "0x65Ba03c6FA90Ed549f465D4c8f2e784D6eEB7E76"
 
 // tokenBuilder is a TxBuilder that also sends tokens.
 type tokenBuilder struct {
@@ -94,7 +94,7 @@ func claimFull(h http.Handler, addr, token, cfIP string) (int, fullResp) {
 
 func mustDrip(t *testing.T, day, total float64) *TokenDrip {
 	t.Helper()
-	d, err := NewTokenDrip(glusd, "glUSD", 6, 1, day, total)
+	d, err := NewTokenDrip(usdce, "USDC.e", 6, 1, day, total)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -102,13 +102,13 @@ func mustDrip(t *testing.T, day, total float64) *TokenDrip {
 }
 
 func TestNewTokenDripValidation(t *testing.T) {
-	if _, err := NewTokenDrip(glusd, "glUSD", 6, 1, 0, 0); err == nil {
+	if _, err := NewTokenDrip(usdce, "USDC.e", 6, 1, 0, 0); err == nil {
 		t.Fatal("a token drip without a daily budget must be refused")
 	}
-	if _, err := NewTokenDrip("nope", "glUSD", 6, 1, 5, 0); err == nil {
+	if _, err := NewTokenDrip("nope", "USDC.e", 6, 1, 5, 0); err == nil {
 		t.Fatal("bad address")
 	}
-	if _, err := NewTokenDrip(glusd, "glUSD", 6, 1, 5, 0.5); err == nil {
+	if _, err := NewTokenDrip(usdce, "USDC.e", 6, 1, 5, 0.5); err == nil {
 		t.Fatal("lifetime cap below one payout")
 	}
 	d := mustDrip(t, 3, 5)
@@ -126,7 +126,7 @@ func TestTokenDripWithClaim(t *testing.T) {
 		t.Fatalf("unsigned: %d sent=%d", code, len(b.sent))
 	}
 	code, r := claimFull(h, addrB, "tokA", "203.0.113.1")
-	if code != http.StatusOK || r.Token == nil || !r.Token.Sent || r.Token.Symbol != "glUSD" || r.Token.Amount != "1" || r.Token.Tx == "" {
+	if code != http.StatusOK || r.Token == nil || !r.Token.Sent || r.Token.Symbol != "USDC.e" || r.Token.Amount != "1" || r.Token.Tx == "" {
 		t.Fatalf("claim: %d %+v", code, r.Token)
 	}
 	if v := b.sent[strings.ToLower(addrB)]; v == nil || v.String() != "1000000" {
@@ -170,7 +170,7 @@ func TestTokenDripLifetimeCapAndPersistence(t *testing.T) {
 }
 
 func TestTokenDripEmptyWalletAndErrors(t *testing.T) {
-	h, b := newTokenServer(t, Protection{}, mustDrip(t, 10, 0), 500_000, true) // half a glUSD left
+	h, b := newTokenServer(t, Protection{}, mustDrip(t, 10, 0), 500_000, true) // half a USDC.e left
 	code, r := claimFull(h, addrA, "", "203.0.113.1")
 	if code != http.StatusOK || r.Token.Sent || !strings.Contains(r.Token.Msg, "empty") {
 		t.Fatalf("empty wallet: %d %+v", code, r.Token)
@@ -205,7 +205,7 @@ func TestInfoShowsToken(t *testing.T) {
 	h.ServeHTTP(rr, httptest.NewRequest("GET", "/api/info", nil))
 	var info infoResponse
 	_ = json.Unmarshal(rr.Body.Bytes(), &info)
-	if info.Token == nil || info.Token.Symbol != "glUSD" || info.Token.Amount != "1" || info.Token.Decimals != 6 {
+	if info.Token == nil || info.Token.Symbol != "USDC.e" || info.Token.Amount != "1" || info.Token.Decimals != 6 {
 		t.Fatalf("info: %s", rr.Body.String())
 	}
 }

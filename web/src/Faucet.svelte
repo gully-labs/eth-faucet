@@ -30,9 +30,6 @@
     { name: 'Ecosystem', href: 'https://gullychain.xyz/ecosystem/', icon: 'grid' },
     { name: 'Status', href: 'https://status.gullylabs.xyz/', icon: 'activity' },
   ];
-  // glUSD is retired (owner rule: USDC.e only). The backend still drips it until FAUCET_TOKEN_* points at a USDC.e test
-  // token, so the page does not advertise a retired token; the claim result still reports what was sent.
-  const RETIRED_TOKENS = ['glUSD'];
   // Footer: every GullyChain product, same tab (one product family). the consumer app is listed only on the
   // Ecosystem pages (owner 2026-10-30), so it is not here.
   const PRODUCTS = [
@@ -290,7 +287,7 @@
   let step = 1;
   let networkAdded = false;
   let paid = false;
-  // the last successful claim: ETH tx + the token drip (glUSD) result, shown under the form
+  // the last successful claim: ETH tx + the token drip (USDC.e) result, shown under the form
   let claimResult = null; // { ethTx, token: { symbol, amount, sent, tx, msg } | null }
   $: needSignIn = !!(faucetInfo.gullyid_client && faucetInfo.signin_required);
   $: steps = needSignIn ? ['Sign in with Gully ID', 'Your address', 'Claim ETH'] : ['Add network', 'Request ETH', 'Start building'];
@@ -615,7 +612,7 @@
       <div class="copy">
         <span class="badge">Testnet faucet · chain {CHAIN.id}</span>
         <h1 id="h1">Testnet ETH, <em>{faucetInfo.payout}&nbsp;{faucetInfo.symbol}</em> a day</h1>
-        <p class="promise">{#if faucetInfo.signin_required}Sign in with Gully ID, then one claim per account, address and IP every 24 hours.{:else}One claim per address and per IP every 24 hours.{/if} {#if faucetInfo.token && !RETIRED_TOKENS.includes(faucetInfo.token.symbol)}Each claim also sends <b>{faucetInfo.token.amount} {faucetInfo.token.symbol}</b> (test stablecoin) while the daily {faucetInfo.token.symbol} budget lasts, for Gully Pay checkout and swaps. {/if}<b>Testnet ETH has no value</b>; use it to try the app, deploy contracts and test the bridge.</p>
+        <p class="promise">{#if faucetInfo.signin_required}Sign in with Gully ID, then one claim per account, address and IP every 24 hours.{:else}One claim per address and per IP every 24 hours.{/if} {#if faucetInfo.token}Each claim also sends <b>{faucetInfo.token.amount} {faucetInfo.token.symbol}</b> (test stablecoin) while the daily {faucetInfo.token.symbol} budget lasts, for Gully Pay checkout and swaps. {/if}<b>Testnet ETH has no value</b>; use it to try the app, deploy contracts and test the bridge.</p>
 
         <ol class="stepper" aria-label="Steps" data-testid="stepper">
           {#each steps as label, i}

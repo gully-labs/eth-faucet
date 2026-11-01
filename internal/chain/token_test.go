@@ -17,7 +17,7 @@ func TestERC20TransferData(t *testing.T) {
 }
 
 func TestWithDataKeepsFields(t *testing.T) {
-	to := common.HexToAddress("0xDBE84bE6496Fb3d07F601548555ec7Acc4CeBa8F")
+	to := common.HexToAddress("0x65Ba03c6FA90Ed549f465D4c8f2e784D6eEB7E76")
 	in := types.NewTx(&types.DynamicFeeTx{ChainID: big.NewInt(485590), Nonce: 7, GasTipCap: big.NewInt(1), GasFeeCap: big.NewInt(2), Gas: 90000, To: &to, Value: big.NewInt(0)})
 	out := withData(in, []byte{1, 2, 3})
 	if out.Nonce() != 7 || out.Gas() != 90000 || *out.To() != to || out.ChainId().Int64() != 485590 || len(out.Data()) != 3 || out.Type() != types.DynamicFeeTxType {
