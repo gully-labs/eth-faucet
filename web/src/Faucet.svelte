@@ -2,6 +2,7 @@
   import { onMount, onDestroy } from 'svelte';
   import { getAddress } from '@ethersproject/address';
   import GullySignIn from './GullySignIn.svelte';
+  import { parseTarget, targetCheck, appName, sameAddress } from './target.js';
 
   // GullyChain testnet faucet (gully-labs fork): brand kit v4 (Gully Chain Night 2.0). The faucet logic,
   // flags and API below are upstream's; only the page changed.
@@ -13,7 +14,8 @@
     explorer: 'https://testnet-explorer.gullychain.xyz',
   };
   const LINKS = [
-    { name: 'App', href: 'https://kre8.fun/', icon: 'grid' },
+    // owner 2026-10-31: the one Gully Chain header action (gully-ops sites/_shared/gc-chrome.json), never the consumer app
+    { name: 'Start building', href: 'https://dev.gullychain.xyz/quickstart/', icon: 'rocket' },
     { name: 'Bridge', href: 'https://testnet-bridge.gullychain.xyz/', icon: 'arrows' },
     { name: 'Docs', href: 'https://docs.gullychain.xyz/', icon: 'book' },
     { name: 'Explorer', href: CHAIN.explorer + '/', icon: 'search' },
@@ -28,10 +30,10 @@
     { name: 'Ecosystem', href: 'https://gullychain.xyz/ecosystem/', icon: 'grid' },
     { name: 'Status', href: 'https://status.gullylabs.xyz/', icon: 'activity' },
   ];
-  // Footer: every GullyChain product, same tab (one product family).
+  // Footer: every GullyChain product, same tab (one product family). the consumer app is listed only on the
+  // Ecosystem pages (owner 2026-10-30), so it is not here.
   const PRODUCTS = [
     { name: 'GullyChain', href: 'https://gullychain.xyz/', icon: 'globe' },
-    { name: 'App', href: 'https://kre8.fun/', icon: 'appwin' },
     { name: 'Bridge', href: 'https://testnet-bridge.gullychain.xyz/', icon: 'arrows' },
     { name: 'Explorer', href: CHAIN.explorer + '/', icon: 'search' },
     { name: 'Sentry', href: 'https://sentry.gullychain.xyz/', icon: 'shield' },
@@ -94,8 +96,22 @@
   // overwrite an address the visitor typed; clear it again on sign-out only if it is still the filled-in one.
   let gullyFilled = null;
   let gullyToken = null; // session access token, sent as Authorization: Bearer when the faucet requires sign-in
+  let gullyMain = null; // the Gully ID main wallet (profile `wallet`)
+  let gullyWallets = []; // every wallet of the Gully ID (profile `wallets`), to tell "yours, but not kre8's" apart
+  // An app link (kre8 "Get test ETH": ?to=<account>&from=kre8) locks the field to the account the app uses, so the
+  // Gully ID sign-in below can not swap it for the main wallet (owner report 2026-10-31).
+  const target = typeof window !== 'undefined' ? parseTarget(window.location.search) : { to: null, from: null };
+  let lockedTo = target.to;
+  if (lockedTo) input = lockedTo;
+  let confirmOther = false; // the person saw the "not your account" warning and pressed Send again
   function onGullyWallet(address, user, session) {
     gullyToken = session?.accessToken || null;
+    gullyMain = address || null;
+    gullyWallets = Array.isArray(user?.wallets) ? user.wallets : [];
+    if (lockedTo) {
+      if (step < 2 && address) step = 2;
+      return;
+    }
     const current = (input || '').trim();
     if (address) {
       if (!current || current === gullyFilled) input = address;
@@ -106,6 +122,19 @@
       gullyFilled = null;
     }
   }
+  function unlockTarget() {
+    lockedTo = null;
+    setTimeout(() => document.getElementById('address')?.focus(), 0);
+  }
+  function useMyGullyAccount() {
+    if (!check.expected) return;
+    input = check.expected;
+    fieldError = '';
+  }
+  $: check = targetCheck({ field: input, signedIn: !!gullyMain || !!gullyToken, gullyMain, gullyWallets, lockedTo: target.to, from: target.from });
+  // a new address in the field needs a new confirmation
+  $: input, (confirmOther = false);
+
   let faucetInfo = {
     account: '0x0000000000000000000000000000000000000000',
     network: 'testnet',
@@ -253,12 +282,46 @@
   $: spTxs = sparkBars(blocks.slice(-20).map((b) => b.txs));
   $: spPay = sparkBars(blocks.map((b) => b.payouts));
 
-  // ---- stepper: 1 add network, 2 request ETH, 3 open the app
+  // ---- stepper. With /api/info signin_required (the live config): 1 Sign in with Gully ID, 2 your address (filled from
+  //      Gully ID, from Connect wallet, or pasted), 3 claim. Without it: 1 add network, 2 request ETH, 3 start building.
   let step = 1;
   let networkAdded = false;
   let paid = false;
   // the last successful claim: ETH tx + the token drip (USDC.e) result, shown under the form
   let claimResult = null; // { ethTx, token: { symbol, amount, sent, tx, msg } | null }
+  $: needSignIn = !!(faucetInfo.gullyid_client && faucetInfo.signin_required);
+  $: steps = needSignIn ? ['Sign in with Gully ID', 'Your address', 'Claim ETH'] : ['Add network', 'Request ETH', 'Start building'];
+  $: cur = needSignIn ? (paid ? 4 : !gullyToken ? 1 : !(input || '').trim() ? 2 : 3) : step;
+  $: claimBlocked = needSignIn && !gullyToken;
+
+  // ---- Connect wallet: the shared Gully Chain dialog (public/gc-connect.js, canonical gully-ops sites/_shared/gc-connect,
+  //      byte for byte): Gully Wallet (passkey) first, WalletConnect, detected EIP-6963 wallets, then install links.
+  //      It only fills the address field; with signin_required the claim still needs the Gully ID sign-in above.
+  let connecting = false;
+  let walletName = '';
+  async function connectWallet() {
+    const gc = typeof window !== 'undefined' ? window.GullyConnect : null;
+    if (!gc || typeof gc.open !== 'function') {
+      notify({ title: 'Wallet picker unavailable', message: 'It did not load. Paste your address instead, or reload the page.', type: 'is-warning', icon: 'wallet' });
+      return;
+    }
+    connecting = true;
+    try {
+      const r = await gc.open({ appName: 'Gully Faucet' });
+      const a = r?.accounts?.[0];
+      if (a) {
+        input = a;
+        walletName = r.name || 'wallet';
+        fieldError = '';
+        if (step < 2) step = 2;
+        notify({ title: walletName + ' connected', message: 'Address ' + short(a) + ' filled in.', type: 'is-success', icon: 'wallet', ms: 4000 });
+      }
+    } catch (e) {
+      if (e?.code !== 4001) notify({ title: 'Wallet not connected', message: e?.message || 'The wallet did not connect.', type: 'is-warning', icon: 'wallet' });
+    } finally {
+      connecting = false;
+    }
+  }
 
   // ---- add the chain to an injected wallet (EIP-3085)
   let addingChain = false;
@@ -415,14 +478,23 @@
         return;
       }
 
+      // Signed in with Gully ID and paying another address than the Gully account kre8 uses: warn once, pay on the
+      // second press (the warning above the field says why and offers "Use my Gully account").
+      const c = targetCheck({ field: address, signedIn: !!gullyMain || !!gullyToken, gullyMain, gullyWallets, lockedTo: target.to, from: target.from });
+      if (c.state === 'mismatch' && !confirmOther) {
+        confirmOther = true;
+        notify({ title: c.title, message: 'Tap "Use my Gully account", or press Send again to pay this address anyway.', type: 'is-warning', icon: 'wallet', ms: 9000 });
+        return;
+      }
+
       // Prepare request headers
       const headers = {
         'Content-Type': 'application/json',
       };
       if (faucetInfo.signin_required) {
         if (!gullyToken) {
-          fieldError = 'Sign in with Gully first (button above): one claim per Gully ID a day.';
-          toast({ message: 'Sign in with Gully to claim testnet ETH.', type: 'is-warning' });
+          fieldError = 'Sign in with Gully ID first (step 1): one claim per Gully ID a day.';
+          toast({ message: 'Sign in with Gully ID to claim testnet ETH.', type: 'is-warning' });
           return;
         }
         headers['Authorization'] = 'Bearer ' + gullyToken;
@@ -482,6 +554,8 @@
       } else {
         const errorMessage = data?.msg || 'Request failed';
         toast({ message: errorMessage, type: 'is-danger' });
+        // an app account that is not on chain yet (kre8 passkey accounts go on chain with their first action)
+        if (target.from && sameAddress(address, target.to) && /no history/i.test(errorMessage)) fieldError = `Your ${appName(target.from)} account is not on chain yet. In ${appName(target.from)}, tap "Get test ETH" again: it puts the account on chain first (free), then sends you here.`;
       }
     } catch (error) {
       console.error('Request failed:', error);
@@ -540,18 +614,22 @@
         <h1 id="h1">Testnet ETH, <em>{faucetInfo.payout}&nbsp;{faucetInfo.symbol}</em> a day</h1>
         <p class="promise">{#if faucetInfo.signin_required}Sign in with Gully ID, then one claim per account, address and IP every 24 hours.{:else}One claim per address and per IP every 24 hours.{/if} {#if faucetInfo.token}Each claim also sends <b>{faucetInfo.token.amount} {faucetInfo.token.symbol}</b> (test stablecoin) while the daily {faucetInfo.token.symbol} budget lasts, for Gully Pay checkout and swaps. {/if}<b>Testnet ETH has no value</b>; use it to try the app, deploy contracts and test the bridge.</p>
 
-        <ol class="stepper" aria-label="Steps">
-          <li class:done={step > 1} class:active={step === 1}><span class="n">{#if step > 1}{@html icon('check')}{:else}1{/if}</span><span>Add network</span></li>
-          <li class:done={step > 2} class:active={step === 2}><span class="n">{#if step > 2}{@html icon('check')}{:else}2{/if}</span><span>Request ETH</span></li>
-          <li class:active={step === 3}><span class="n">3</span><span>Open the app</span></li>
+        <ol class="stepper" aria-label="Steps" data-testid="stepper">
+          {#each steps as label, i}
+            <li class:done={cur > i + 1} class:active={cur === i + 1}><span class="n">{#if cur > i + 1}{@html icon('check')}{:else}{i + 1}{/if}</span><span>{label}</span></li>
+          {/each}
         </ol>
 
         <div id="hcaptcha" data-size="invisible"></div>
         <form id="claim" class="claim" onsubmit={(e) => { e.preventDefault(); if (!isLoading) handleRequest(); }}>
           {#if faucetInfo.gullyid_client}
-            <GullySignIn clientId={faucetInfo.gullyid_client} issuer={faucetInfo.gullyid_issuer || undefined} required={!!faucetInfo.signin_required} onwallet={onGullyWallet} />
+            <GullySignIn clientId={faucetInfo.gullyid_client} issuer={faucetInfo.gullyid_issuer || undefined} required={!!faucetInfo.signin_required} onwallet={onGullyWallet} lockedNote={lockedTo ? `the claim pays your ${appName(target.from)} account ${short(lockedTo)}` : ''} />
           {/if}
-          <label class="lab" for="address">Your address or ENS name</label>
+          <div class="addr-h">
+            <label class="lab" for="address">{#if needSignIn}<span class="sn">2</span>{/if}Your address or ENS name</label>
+            <button type="button" class="btn ter sm" data-testid="connect-wallet" onclick={connectWallet} disabled={connecting} aria-busy={connecting}><span class="ic">{@html icon('wallet')}</span>{walletName ? walletName + ' connected' : 'Connect wallet'}</button>
+          </div>
+          <p class="hint addr-hint">{#if faucetInfo.gullyid_client}Filled in by Gully ID, or connect a wallet, or paste any address.{:else}Connect a wallet, or paste any address.{/if}</p>
           <div class="field">
             <input
               id="address"
@@ -561,6 +639,8 @@
               autocomplete="off"
               spellcheck="false"
               placeholder="0x… or name.eth"
+              readonly={!!lockedTo}
+              data-testid="address"
               aria-invalid={fieldError ? 'true' : undefined}
               aria-describedby={fieldError ? 'address-err' : undefined}
               oninput={() => (fieldError = '')}
@@ -572,14 +652,27 @@
                 }
               }}
             />
-            <button type="submit" class="btn pri" disabled={isLoading} aria-busy={isLoading}>
+            <button type="submit" class="btn pri" disabled={isLoading || claimBlocked} aria-busy={isLoading} aria-describedby={claimBlocked ? 'claim-why' : undefined} data-testid="claim">
               {#if isLoading}
                 <span class="spinner" aria-hidden="true"></span>Sending
+              {:else if confirmOther && check.state === 'mismatch'}
+                <span class="ic">{@html icon('droplet')}</span>Send to this address anyway<span class="ic ar">{@html icon('arrow')}</span>
               {:else}
                 <span class="ic">{@html icon('droplet')}</span>Request {faucetInfo.payout} {faucetInfo.symbol}<span class="ic ar">{@html icon('arrow')}</span>
               {/if}
             </button>
           </div>
+          {#if lockedTo}
+            <p class="lockline" data-testid="locked-to"><span class="ic">{@html icon('check')}</span><span>Pays your {appName(target.from)} account <span class="mono">{short(lockedTo)}</span>, the one {appName(target.from)} shows your balance for.</span> <button type="button" class="linkbtn" onclick={unlockTarget}>Use another address</button></p>
+          {/if}
+          {#if check.state === 'mismatch'}
+            <div class="twarn" role="alert" data-testid="not-your-account">
+              <p class="twarn-h"><span class="ic">{@html icon('info')}</span>{check.title}</p>
+              <p class="twarn-s">{check.detail}</p>
+              <button type="button" class="btn sec sm" onclick={useMyGullyAccount} data-testid="use-my-gully-account"><span class="ic">{@html icon('wallet')}</span>Use my Gully account <span class="mono">{short(check.expected)}</span></button>
+            </div>
+          {/if}
+          {#if claimBlocked}<p id="claim-why" class="hint" data-testid="claim-why">The claim unlocks after you sign in with Gully ID (step 1): one claim per account a day.</p>{/if}
           {#if fieldError}<p id="address-err" class="ferr">{fieldError}</p>{/if}
           {#if claimResult}
             <div class="claim-result" role="status" data-testid="claim-result">
@@ -602,7 +695,7 @@
             <span class="ic">{@html icon(networkAdded ? 'check' : 'plus')}</span>{networkAdded ? 'Network added' : 'Add GullyChain Testnet'}<span class="ic ar">{@html icon('arrow')}</span>
           </button>
           <a class="btn ter" class:glow={paid} href={LINKS[0].href} target="_blank" rel="noopener noreferrer">
-            <span class="ic">{@html icon('grid')}</span>Open the app<span class="ic ar">{@html icon('arrow')}</span>
+            <span class="ic">{@html icon('rocket')}</span>Start building<span class="ic ar">{@html icon('arrow')}</span>
           </a>
         </div>
         <div class="rpcrow"><span class="lab">RPC</span><code>{CHAIN.rpc}</code><button class="btn ter xs" type="button" onclick={() => copyText(CHAIN.rpc, 'RPC URL')}><span class="ic">{@html icon('copy')}</span>Copy</button></div>
@@ -822,11 +915,26 @@
   .claim { margin: 0; background: var(--surface); border: 1px solid var(--border); border-radius: var(--gn-r-lg); padding: 18px; display: flex; flex-direction: column; gap: 10px; }
   .claim .lab { font-size: var(--gn-fs-xs); }
   .field { display: flex; gap: 8px; }
+  .addr-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-top: 4px; }
+  .addr-h .sn { width: 20px; height: 20px; border-radius: 50%; display: inline-grid; place-items: center; background: var(--gn-surface-2); color: var(--gn-text); font-size: 11px; letter-spacing: 0; }
+  .addr-hint { margin-top: -4px; }
   .input { flex: 1 1 auto; min-width: 0; min-height: var(--gn-btn-h); padding: 0 18px; border-radius: var(--gn-r-pill); border: 1px solid var(--border-2); background: var(--surface-2); color: var(--text); font-size: 14px; outline: none; transition: border-color var(--gn-dur), box-shadow var(--gn-dur); }
   .input::placeholder { color: var(--muted-c); opacity: 1; font-family: var(--gn-font); }
   .input:focus { border-color: var(--gn-cyan); box-shadow: 0 0 0 3px var(--gn-info-bg); }
   .input[aria-invalid='true'] { border-color: var(--danger); }
   .ferr { margin: 0; font-size: 13px; color: var(--danger); }
+  /* app link (?to=) lock + "not your kre8 / Gully ID account" warning (Gully Chain Night warn tokens) */
+  .lockline { margin: 0; display: block; font-size: 13px; line-height: 1.6; color: var(--text-2); }
+  .lockline .ic { display: inline-flex; width: 16px; height: 16px; margin-right: 6px; vertical-align: -3px; color: var(--ok); }
+  .lockline .linkbtn { margin-left: 6px; }
+  .lockline .mono { color: var(--gn-text); }
+  .linkbtn { all: unset; cursor: pointer; color: var(--link); font-weight: var(--gn-w-bold); text-decoration: underline; text-underline-offset: 2px; }
+  .linkbtn:focus-visible { box-shadow: var(--gn-focus); border-radius: 4px; }
+  .twarn { display: grid; gap: 8px; justify-items: start; padding: 12px 14px; border-radius: var(--gn-r); border: 1px solid color-mix(in srgb, var(--gn-warn) 45%, transparent); background: var(--gn-warn-bg); }
+  .twarn-h { margin: 0; display: flex; align-items: center; gap: 8px; font-weight: var(--gn-w-bold); color: var(--gn-text); }
+  .twarn-h .ic { width: 18px; height: 18px; color: var(--gn-warn); flex: none; }
+  .twarn-s { margin: 0; font-size: 13px; color: var(--text-2); }
+  .twarn .mono { font-family: var(--f-mono); }
   .hint { margin: 0; font-size: 13px; color: var(--muted-c); overflow-wrap: anywhere; }
   .addr { background: none; border: 0; padding: 0; color: var(--text-2); font-size: 12.5px; cursor: copy; border-bottom: 1px dashed var(--border-2); overflow-wrap: anywhere; word-break: break-all; text-align: left; }
   .addr:hover { border-bottom-color: var(--gn-cyan); color: var(--link); }

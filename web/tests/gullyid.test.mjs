@@ -84,8 +84,7 @@ test('rejects (button hidden) when neither URL loads', async () => {
   await assert.rejects(loadGullyID());
 });
 
-test('GullySignIn renders the official Sign in with Gully ID button', async () => {
-  behaviour = () => 'sdk';
+async function mountSignIn(props) {
   const src = readFileSync(join(WEB, 'src/GullySignIn.svelte'), 'utf8');
   const { js } = compile(src, { generate: 'client', filename: 'GullySignIn.svelte', css: 'injected' });
   const dir = mkdtempSync(join(WEB, 'node_modules', '.gid-test-'));
@@ -95,12 +94,47 @@ test('GullySignIn renders the official Sign in with Gully ID button', async () =
   const { default: GullySignIn } = await import(pathToFileURL(join(dir, 'GullySignIn.js')).href);
   const target = win.document.createElement('div');
   win.document.body.appendChild(target);
-  mount(GullySignIn, { target, props: { clientId: 'gully-faucet', required: true } });
-  for (let i = 0; i < 20 && !target.querySelector('button'); i++) {
-    await new Promise((r) => setTimeout(r, 5));
-    flushSync();
-  }
-  assert.equal(target.querySelector('button')?.textContent, 'Sign in with Gully ID');
-  assert.equal(renders[0].theme, 'dark');
-  assert.ok(target.querySelector('.gid.on'), 'the sign-in row is shown');
+  mount(GullySignIn, { target, props });
+  flushSync();
+  const settle = async () => { for (let i = 0; i < 20; i++) { await new Promise((r) => setTimeout(r, 5)); flushSync(); } };
+  return { target, settle };
+}
+
+test('step 1 "Sign in with Gully ID" is in the markup on first paint, before the SDK loads', async () => {
+  behaviour = () => 'sdk';
+  const { target } = await mountSignIn({ clientId: 'gully-faucet', required: true });
+  const btn = target.querySelector('[data-testid="gid-signin"]');
+  assert.ok(btn, 'button rendered immediately');
+  assert.match(btn.textContent, /Sign in with Gully ID/);
+  assert.match(target.textContent, /Required/);
+});
+
+test('the step stays visible with a retry when the SDK cannot load (never hidden)', async () => {
+  behaviour = () => 'error';
+  const { target, settle } = await mountSignIn({ clientId: 'gully-faucet', required: true });
+  await settle();
+  const btn = target.querySelector('[data-testid="gid-signin"]');
+  assert.ok(btn, 'button still shown after the SDK failed');
+  btn.click();
+  await settle();
+  const err = target.querySelector('[data-testid="gid-error"]');
+  assert.ok(err, 'inline error');
+  assert.match(err.textContent, /Retry/);
+  assert.ok(target.querySelector('[data-testid="gid-signin"]'), 'button still there');
+});
+
+test('with the SDK in, a click signs in with the popup and fills the main wallet', async () => {
+  behaviour = () => 'none';
+  const calls = [];
+  const filled = [];
+  const session = { accessToken: 't0k', user: { gullyName: 'maya.gully', wallet: { address: '0x1111111111111111111111111111111111111111' } } };
+  const base = fakeSdk();
+  win.GullyID = { init: (o) => ({ ...base.init(o), signIn: async (m) => { calls.push(m); return session; } }) };
+  const { target, settle } = await mountSignIn({ clientId: 'gully-faucet', required: true, onwallet: (a, u, s) => filled.push([a, s?.accessToken || null]) });
+  await settle();
+  target.querySelector('[data-testid="gid-signin"]').click();
+  await settle();
+  assert.deepEqual(calls, [{ mode: 'popup' }]);
+  assert.deepEqual(filled.at(-1), ['0x1111111111111111111111111111111111111111', 't0k']);
+  assert.match(target.querySelector('[data-testid="gid-who"]').textContent, /maya\.gully/);
 });

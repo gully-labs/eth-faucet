@@ -23,7 +23,7 @@ test('the entry imports the shared GN tokens and components', () => {
 });
 
 // SHA-256 of the brand kit v4 files (gully-ops sites/_shared/brand/kit-v4 = Desktop\GULLY LABS GRAPHICS\Gully Chain\
-// brand-kit-v4), the landing favicons, the faucet OG card (sites/_shared/brand/og), gc-switcher 1.8.0 and the Gully Labs
+// brand-kit-v4), the landing favicons, the faucet OG card (sites/_shared/brand/og), gc-switcher 1.8.2, gc-connect 1.0.0 and the Gully Labs
 // dark badge (gully-ops sites/_shared/brand); recorded 2026-10-30 from gully-ops feat/gc-brand-v4 8a81bed4.
 const KIT = JSON.parse(readFileSync(join(WEB, 'tests/kit-sha256.json'), 'utf8'));
 test('brand-kit logos and badges are byte-identical to the kit', () => {
@@ -73,10 +73,11 @@ test('header nav reaches dev, docs, bridge, explorer, ecosystem and status, each
   assert.match(s.slice(s.indexOf('const PRODUCTS = [')), /\{ name: 'Ecosystem', href: 'https:\/\/gullychain\.xyz\/ecosystem\/', icon: 'grid' \}/, 'footer links the ecosystem page');
 });
 
-test('gc-switcher 1.8.0 (kit v4 dark theme), loaded with its version on both pages', () => {
+test('gc-switcher 1.8.2 (kit v4 dark theme, Gully Chain products only), loaded with its version on both pages', () => {
   const js = readFileSync(join(WEB, 'public/gc-switcher.js'), 'utf8');
-  assert.match(js, /GC_SWITCHER_VERSION = '1\.8\.0'/);
-  for (const f of ['index.html', '404.html']) assert.match(readFileSync(join(WEB, f), 'utf8'), /gc-switcher\.js\?v=1\.8\.0/, f);
+  assert.match(js, /GC_SWITCHER_VERSION = '1\.8\.2'/);
+  assert.doesNotMatch(js.slice(js.indexOf('var PRODUCTS')), /href: 'https:\/\/[a-z.]*kre8\.fun/, '1.8.2: no kre8 entries in the grid');
+  for (const f of ['index.html', '404.html']) assert.match(readFileSync(join(WEB, f), 'utf8'), /gc-switcher\.js\?v=1\.8\.2/, f);
 });
 
 // GN 2.0 / brand kit v4: no kit v3 colour literal or Exo 2 left in the faucet's own sources (src/night/ is vendored).
