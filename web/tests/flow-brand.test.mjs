@@ -85,5 +85,5 @@ test('no kit v3 art, fonts or colours in the faucet sources and public files', (
 test('no consumer-app (kre8) links on this Gully Chain surface; builders go to the quickstart', () => {
   // no link to the consumer app; the word itself may appear in-page (#30: "Pays your kre8 account" for ?to=&from=kre8)
   for (const f of OWN) assert.doesNotMatch(read(f), /(https?:)?\/\/([a-z0-9-]+\.)?kre8\.fun|href=["'{][^"'}]*kre8/i, f);
-  assert.match(faucet, /\{ name: 'Start building', href: 'https:\/\/docs\.gullychain\.xyz\/quickstart\/', icon: 'rocket' \}/);
+  assert.match(faucet, /\{ name: 'Start building', href: 'https:\/\/dev\.gullychain\.xyz\/quickstart\/', icon: 'rocket' \}/);
 });

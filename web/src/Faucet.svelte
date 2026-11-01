@@ -14,8 +14,8 @@
     explorer: 'https://testnet-explorer.gullychain.xyz',
   };
   const LINKS = [
-    // owner 2026-10-30: Gully Chain surfaces link builders to the docs quickstart, never to the consumer app
-    { name: 'Start building', href: 'https://docs.gullychain.xyz/quickstart/', icon: 'rocket' },
+    // owner 2026-10-31: the one Gully Chain header action (gully-ops sites/_shared/gc-chrome.json), never the consumer app
+    { name: 'Start building', href: 'https://dev.gullychain.xyz/quickstart/', icon: 'rocket' },
     { name: 'Bridge', href: 'https://testnet-bridge.gullychain.xyz/', icon: 'arrows' },
     { name: 'Docs', href: 'https://docs.gullychain.xyz/', icon: 'book' },
     { name: 'Explorer', href: CHAIN.explorer + '/', icon: 'search' },
