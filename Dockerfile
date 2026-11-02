@@ -1,4 +1,5 @@
-FROM node:lts-alpine as frontend
+# node:22 bundles yarn 1; node:lts-alpine (Node 24+) no longer does, so a fresh pull fails at `yarn install`.
+FROM node:22-alpine as frontend
 
 WORKDIR /frontend-build
 
