@@ -3,7 +3,7 @@
   import { getAddress } from '@ethersproject/address';
   import GullySignIn from './GullySignIn.svelte';
   import { parseTarget, targetCheck, appName, sameAddress } from './target.js';
-  import { fetchPayouts, bucketPayouts, latestPayouts } from './drips.js';
+  import { fetchPayouts, bucketPayouts, latestPayouts, niceMax } from './drips.js';
 
   // GullyChain testnet faucet (gully-labs fork): brand kit v4 (Gully Chain Night 2.0). The faucet logic,
   // flags and API below are upstream's; only the page changed.
@@ -276,7 +276,7 @@
   const CH = 200, ML = 34, MR = 10, MT = 12, MB = 26;
   let plotW = 0;
   $: CW = plotW || 640;
-  $: gridMax = Math.max(4, Math.ceil(Math.max(0, ...dripDays.map((b) => b.n || 0)) / 4) * 4);
+  $: gridMax = niceMax(Math.max(0, ...dripDays.map((b) => b.n || 0)));
   let bars = []; // { day, n, eth, x, w, y, h }
   let shown = {}; // day -> displayed { y, h }
   let raf = null;
@@ -1106,7 +1106,7 @@
   @media (min-width: 700px) { .more { grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); } }
   @media (min-width: 900px) { .hero { padding: 48px 0 40px; } .hero .wrap { grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: 32px; align-items: start; } }
   @media (max-width: 899px) { .band { grid-template-columns: minmax(0, 1fr) 200px; } }
-  @media (max-width: 640px) { footer ul { row-gap: 0; } .rpcdd .mono { font-size: 12px; } .toast .x { width: 44px; height: 44px; margin: -10px -10px 0 0; } .glb, .gcb { min-height: 44px; align-items: center; } footer ul a { display: inline-flex; align-items: center; min-height: 44px; min-width: 44px; } .btn.sm, .btn.xs { min-height: 44px; } .btn.icon { width: 44px; } .addr { display: inline-flex; align-items: center; min-height: 44px; padding: 0; } .logo, .fwm { min-width: 44px; min-height: 44px; align-items: center; justify-content: center; } .menubtn { width: 44px; height: 44px; } .recent li { min-height: 44px; } .recent .when { display: inline-flex; align-items: center; min-height: 44px; min-width: 44px; justify-content: flex-end; } .band { grid-template-columns: 1fr; } .mascot { width: 100%; max-width: 300px; justify-self: end; } .hide-s { display: none; } .field { flex-direction: column; } .btn.pri { width: 100%; } .ctas .btn { flex: 1 1 auto; } .tape .trk { animation: none; padding-left: 90px; overflow-x: auto; } dl div { grid-template-columns: 1fr; gap: 2px; } .stepper li + li::before { width: 12px; margin: 0 6px; } .band { grid-template-columns: minmax(0, 1fr); } .mascot { min-height: 170px; } }
+  @media (max-width: 640px) { .claim-result a { display: inline-flex; align-items: center; min-height: 44px; } footer ul { row-gap: 0; } .rpcdd .mono { font-size: 12px; } .toast .x { width: 44px; height: 44px; margin: -10px -10px 0 0; } .glb, .gcb { min-height: 44px; align-items: center; } footer ul a { display: inline-flex; align-items: center; min-height: 44px; min-width: 44px; } .btn.sm, .btn.xs { min-height: 44px; } .btn.icon { width: 44px; } .addr { display: inline-flex; align-items: center; min-height: 44px; padding: 0; } .logo, .fwm { min-width: 44px; min-height: 44px; align-items: center; justify-content: center; } .menubtn { width: 44px; height: 44px; } .recent li { min-height: 44px; } .recent .when { display: inline-flex; align-items: center; min-height: 44px; min-width: 44px; justify-content: flex-end; } .band { grid-template-columns: 1fr; } .mascot { width: 100%; max-width: 300px; justify-self: end; } .hide-s { display: none; } .field { flex-direction: column; } .btn.pri { width: 100%; } .ctas .btn { flex: 1 1 auto; } .tape .trk { animation: none; padding-left: 90px; overflow-x: auto; } dl div { grid-template-columns: 1fr; gap: 2px; } .stepper li + li::before { width: 12px; margin: 0 6px; } .band { grid-template-columns: minmax(0, 1fr); } .mascot { min-height: 170px; } }
   /* below 400 px the header holds the kit logo and the switcher only; the Latest block tile carries the live number */
   @media (max-width: 399px) { .navr .pill { display: none; } }
   @media (prefers-reduced-motion: reduce) { .pill .dot, .toast, .btn::after, .spinner, .mascot.on img { animation: none !important; } .toast .pb { display: none; } .btn, .btn .ar, .mascot img { transition: none; } .btn:hover:not(:disabled) .ar, .group.band:hover .mascot img { transform: none; } }

@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { bucketPayouts, fetchPayouts, latestPayouts } from '../src/drips.js';
+import { bucketPayouts, fetchPayouts, latestPayouts, niceMax } from '../src/drips.js';
 
 const ME = '0x58c33B44938aFE5F133B6FB7C487B60461c0177b';
 const NOW = Date.parse('2026-11-02T12:00:00Z');
@@ -45,4 +45,8 @@ test('the page has no sample numbers: a dash until data arrives, and the reason 
   assert.match(s, /data-testid="drips-error"/);
   assert.doesNotMatch(s, /Math\.random/);
   assert.doesNotMatch(s, /payout: 1,/, 'no made-up payout before /api/info answers');
+});
+
+test('the y axis has four whole, round steps above the tallest bar', () => {
+  assert.deepEqual([0, 3, 4, 5, 9, 40, 432, 1001].map(niceMax), [4, 4, 4, 8, 20, 40, 500, 2000]);
 });

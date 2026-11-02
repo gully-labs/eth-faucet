@@ -52,3 +52,11 @@ export const latestPayouts = (items, account, count = 4) => {
   return (items || []).filter((t) => (t.from || '').toLowerCase() === me && Number(t.value || 0) > 0).slice(0, count)
     .map((t) => ({ hash: t.hash, to: t.to, eth: Number(t.value) / 1e18, ts: Date.parse(t.timestamp) / 1000, block: t.blockNumber }));
 };
+
+/** The top of the y axis: four whole, round steps above the tallest bar. */
+export function niceMax(max) {
+  if (!(max > 4)) return 4;
+  const mag = 10 ** Math.floor(Math.log10(max / 4));
+  const step = [1, 2, 2.5, 5, 10].map((k) => k * mag).find((v) => Number.isInteger(v) && v * 4 >= max) ?? 10 * mag;
+  return step * 4;
+}
