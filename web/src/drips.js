@@ -57,6 +57,6 @@ export const latestPayouts = (items, account, count = 4) => {
 export function niceMax(max) {
   if (!(max > 4)) return 4;
   const mag = 10 ** Math.floor(Math.log10(max / 4));
-  const step = [1, 2, 2.5, 5, 10].map((k) => k * mag).find((v) => Number.isInteger(v) && v * 4 >= max) ?? 10 * mag;
+  const step = [1, 1.5, 2, 2.5, 3, 4, 5, 7.5, 10].map((k) => k * mag).find((v) => Number.isInteger(v) && v * 4 >= max) ?? 10 * mag;
   return step * 4;
 }

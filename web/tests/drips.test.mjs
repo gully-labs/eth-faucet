@@ -48,5 +48,5 @@ test('the page has no sample numbers: a dash until data arrives, and the reason 
 });
 
 test('the y axis has four whole, round steps above the tallest bar', () => {
-  assert.deepEqual([0, 3, 4, 5, 9, 40, 432, 1001].map(niceMax), [4, 4, 4, 8, 20, 40, 500, 2000]);
+  assert.deepEqual([0, 3, 4, 5, 9, 40, 432, 1001].map(niceMax), [4, 4, 4, 8, 12, 40, 600, 1200]);
 });
