@@ -102,6 +102,13 @@ is never broadcast to two URLs at once. Empty = the Gully Chain testnet public l
 `https://testnet-rpc.gullychain.xyz,https://rpc.gullyrpc.xyz/gullychain/evm/485590,https://rpc2.gullychain.xyz` (never
 `rpc.gullychain.xyz`: it becomes the mainnet RPC on cutover day).
 
+**Chain guard (Gully fork).** At start-up the faucet reads the chain id from the RPC and refuses to start unless it is
+on `-faucet.chainids` / `FAUCET_ALLOWED_CHAIN_IDS` (comma-separated, empty = `485590`, Gully Chain Testnet).
+Mainnets are refused even when listed: Gully Chain 48559, Ethereum 1, Arbitrum One 42161, Arbitrum Nova 42170, Base
+8453, OP Mainnet 10, BNB Chain 56 and Polygon 137. A wrong `WEB3_PROVIDER` (for example `rpc.gullychain.xyz` after the
+mainnet cutover) therefore stops the faucet instead of paying out real ETH. The upstream `-faucet.name sepolia|holesky`
+shortcut still works if that chain id is on the list, and it must match what the RPC reports.
+
 Then run the faucet application without the wallet command-line flags:
 ```bash
 ./eth-faucet -httpport 8080
