@@ -88,17 +88,16 @@
 </script>
 
 <div class="gid" data-testid="gid-step" aria-live="polite">
-  <div class="gid-h">
-    <span class="gid-n" class:ok={!!user} aria-hidden="true">{#if user}<svg viewBox="0 0 24 24"><path d="m5 12 5 5L20 7"/></svg>{:else if required}1{:else}<svg viewBox="0 0 24 24"><circle cx="10" cy="7" r="4"/><path d="M10.3 15H7a4 4 0 0 0-4 4v2"/></svg>{/if}</span>
-    <p class="gid-t"><b>Sign in with Gully ID</b>{#if required}<span class="gid-req">Required</span>{:else}<span class="gid-opt">Optional</span>{/if}</p>
-  </div>
+  {#if !required && !user}
+    <div class="gid-h"><p class="gid-t"><b>Sign in with Gully ID</b><span class="gid-opt">Optional</span></p></div>
+  {/if}
   {#if user}
     <p class="gid-who" data-testid="gid-who">
       {#if safeAvatar(user.avatar)}
         <img class="gid-av" src={safeAvatar(user.avatar)} alt="" width="22" height="22" referrerpolicy="no-referrer" />
       {/if}
-      <span>Signed in as <b>{user.gullyName || user.name}</b>{#if lockedNote} · {lockedNote}{:else if user.wallet?.address} · address filled with your main wallet <span class="mono">{shortAddress(user.wallet.address)}</span>{:else} · no wallet linked yet{/if}</span>
-      <button type="button" class="gid-link" onclick={signOut}>Sign out</button>
+      <span>Signed in as <b>{user.gullyName || user.name}</b>{#if lockedNote}{' · '}{lockedNote}{/if}</span>
+      <button type="button" class="gid-link out" onclick={signOut}>Sign out</button>
     </p>
   {:else}
     <button type="button" class="gid-btn" data-testid="gid-signin" onclick={signIn} disabled={busy} aria-busy={busy}>
@@ -106,18 +105,16 @@
       <span>{busy ? 'Opening Gully ID…' : 'Sign in with Gully ID'}</span>
       <svg class="ar" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
     </button>
-    <p class="gid-sub">{#if required}Passkey, no seed phrase. One claim per Gully ID a day keeps bots from draining the faucet, and your Gully wallet address is filled in for you.{:else}Fills in your Gully wallet address. Any address works without it.{/if}</p>
+    <p class="gid-sub">{#if required}Required: a passkey, no seed phrase.{:else}Fills in your Gully wallet address. Any address works without it.{/if}</p>
   {/if}
   {#if error}<p class="gid-err" role="alert" data-testid="gid-error">{error} <button type="button" class="gid-link" onclick={signIn}>Retry</button></p>{/if}
 </div>
 
 <style>
-  .gid { display: flex; flex-direction: column; gap: 10px; padding: 14px; border: 1px solid var(--gc-line); border-radius: var(--gn-r); background: var(--gn-ink); }
+  .gid { display: flex; flex-direction: column; gap: 10px; }
   .gid-h { display: flex; align-items: center; gap: 10px; }
-  .gid-n { width: 24px; height: 24px; flex: none; border-radius: 50%; display: grid; place-items: center; font: 700 12px/1 var(--gn-font); background: var(--gn-emerald); color: var(--gn-night); }
-  .gid-n svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
   .gid-t { margin: 0; display: flex; align-items: center; gap: 8px; font-size: 15px; color: var(--gn-text); }
-  .gid-req, .gid-opt { font: 600 11px/1 var(--gn-font); padding: 4px 8px; border-radius: var(--gn-r-pill); background: var(--gn-deep-green); color: var(--gn-mint); }
+  .gid-opt { font: 600 11px/1 var(--gn-font); padding: 4px 8px; border-radius: var(--gn-r-pill); }
   .gid-opt { background: transparent; border: 1px solid var(--gc-line); color: var(--gn-text-3); }
   .gid-btn { all: unset; box-sizing: border-box; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-height: 48px; padding: 0 22px; border-radius: var(--gn-r-pill); width: 100%;
     background: var(--gn-emerald); color: var(--gn-night); font: 700 15px/1 var(--gn-font); transition: transform var(--gn-dur-fast), filter var(--gn-dur-fast); }
@@ -133,7 +130,9 @@
   .gid-who b { color: var(--gn-text); }
   .gid-who .mono { font-family: var(--f-mono); color: var(--gn-text); }
   .gid-av { width: 22px; height: 22px; border-radius: 50%; object-fit: cover; flex: none; border: 1px solid var(--gc-line); }
+  .gid-who span { min-width: 0; flex: 1 1 auto; }
   .gid-link { all: unset; cursor: pointer; color: var(--gn-mint); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+  @media (max-width: 640px) { .gid-link.out { display: inline-flex; align-items: center; min-height: 44px; } }
   .gid-err { margin: 0; font-size: 13px; color: var(--gn-error); }
   @media (prefers-reduced-motion: reduce) { .gid-btn, .gid-btn .ar { transition: none; } .gid-btn:active { transform: none; } }
 </style>

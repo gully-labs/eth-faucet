@@ -111,7 +111,7 @@ const comp = (name) => {
 };
 comp('GullySignIn.svelte');
 comp('Faucet.svelte');
-for (const f of ['gullyid.js', 'target.js']) writeFileSync(join(dir, f), readFileSync(join(WEB, 'src', f)));
+for (const f of ['gullyid.js', 'target.js', 'drips.js']) writeFileSync(join(dir, f), readFileSync(join(WEB, 'src', f)));
 const { mount, unmount, flushSync, tick } = await import('svelte');
 const { default: Faucet } = await import(pathToFileURL(join(dir, 'Faucet.js')).href);
 

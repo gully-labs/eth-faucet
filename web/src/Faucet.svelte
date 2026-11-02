@@ -3,6 +3,7 @@
   import { getAddress } from '@ethersproject/address';
   import GullySignIn from './GullySignIn.svelte';
   import { parseTarget, targetCheck, appName, sameAddress } from './target.js';
+  import { fetchPayouts, bucketPayouts, latestPayouts, niceMax } from './drips.js';
 
   // GullyChain testnet faucet (gully-labs fork): brand kit v4 (Gully Chain Night 2.0). The faucet logic,
   // flags and API below are upstream's; only the page changed.
@@ -138,12 +139,13 @@
   let faucetInfo = {
     account: '0x0000000000000000000000000000000000000000',
     network: 'testnet',
-    payout: 1,
+    payout: '',
     symbol: 'ETH',
     hcaptcha_sitekey: '',
   };
 
   let mounted = false;
+  let infoError = false;
   let hcaptchaLoaded = false;
   let isLoading = false;
   let widgetID = null;
@@ -178,14 +180,16 @@
     toasts = toasts.filter((t) => t.id !== id);
   }
 
-  // ---- live blocks from the public RPC (read-only): the last 24 blocks with their tx lists, so the chart can show
-  //      txs per block and the faucet's own payouts in them; then one block per new head (eth_blockNumber every 6 s).
-  const BLOCKS_KEEP = 24;
+  // ---- live numbers. RPC (read-only): head block, faucet balance, faucet nonce = payouts ever sent. Explorer index: the
+  //      payouts per day and the latest payouts. A source that fails shows "–" with the reason, never a made-up number.
+  const DRIP_DAYS = 14;
   let blockNumber = null;
   let blockBumped = false;
   let blockTimer = null;
-  let blocks = []; // { n, ts, txs, payouts, baseFee, pays: [{to, value, hash}] }
   let balance = null; // faucet account balance, ETH
+  let nonce = null; // payouts ever sent by the faucet account
+  let shownNonce = null; // the same number, counting up when it changes
+  let rpcDown = false;
   let rpcId = 1;
   async function rpc(method, params) {
     const res = await fetch(CHAIN.rpc, {
@@ -197,101 +201,139 @@
     if (data?.error) throw new Error(data.error.message || 'rpc error');
     return data?.result;
   }
-  async function loadBlock(n) {
-    const b = await rpc('eth_getBlockByNumber', ['0x' + n.toString(16), true]);
-    if (!b) return null;
-    const from = (faucetInfo.account || '').toLowerCase();
-    const txs = b.transactions || [];
-    const pays = txs.filter((t) => (t.from || '').toLowerCase() === from).map((t) => ({ to: t.to, value: parseInt(t.value, 16) / 1e18, hash: t.hash }));
-    return { n, ts: parseInt(b.timestamp, 16), txs: txs.length, payouts: pays.length, pays, baseFee: parseInt(b.baseFeePerGas || '0x0', 16) / 1e9 };
-  }
   async function pollBlock() {
+    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
     try {
       const n = parseInt(await rpc('eth_blockNumber', []), 16);
       if (!Number.isFinite(n)) return;
+      rpcDown = false;
       if (n !== blockNumber) {
         blockNumber = n;
         blockBumped = true;
         setTimeout(() => (blockBumped = false), 900);
-        if (mounted) rpc('eth_getBalance', [faucetInfo.account, 'latest']).then((h) => (balance = parseInt(h, 16) / 1e18)).catch(() => {});
       }
-      const have = new Set(blocks.map((b) => b.n));
-      const want = [];
-      for (let i = Math.max(0, n - BLOCKS_KEEP + 1); i <= n; i++) if (!have.has(i)) want.push(i);
-      if (want.length) {
-        const fresh = (await Promise.all(want.slice(-BLOCKS_KEEP).map(loadBlock))).filter(Boolean);
-        blocks = [...blocks, ...fresh].filter((b) => b.n > n - BLOCKS_KEEP).sort((a, b) => a.n - b.n);
+      if (mounted) {
+        rpc('eth_getBalance', [faucetInfo.account, 'latest']).then((h) => (balance = parseInt(h, 16) / 1e18)).catch(() => {});
+        rpc('eth_getTransactionCount', [faucetInfo.account, 'latest']).then((h) => {
+          const v = parseInt(h, 16);
+          if (!Number.isFinite(v) || v === nonce) return;
+          const first = nonce == null;
+          nonce = v;
+          countTo(v);
+          if (!first) loadDrips(); // a new payout: pull it into the chart
+        }).catch(() => {});
       }
+      nowTs = Date.now();
     } catch (error) {
+      rpcDown = true;
       console.error('Block poll failed:', error);
     }
   }
-  $: payoutsWin = blocks.reduce((s, b) => s + b.payouts, 0);
-  $: txsWin = blocks.reduce((s, b) => s + b.txs, 0);
-  $: lastBlock = blocks[blocks.length - 1];
-  $: claimsLeft = balance != null && +faucetInfo.payout > 0 ? Math.floor(balance / +faucetInfo.payout + 1e-9) : null;
-  $: events = blocks
-    .flatMap((b) => b.pays.map((p) => ({ ...p, n: b.n, ts: b.ts })))
-    .reverse()
-    .slice(0, 12);
-
-  // ---- bar chart: hand SVG, bars tween to new heights (rAF, 600 ms ease-out); reduced motion applies at once
   const reduced = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const CW = 760, CH = 230, ML = 34, MR = 10, MT = 12, MB = 26;
-  let bars = []; // { n, x, w, y, h, pay, txs, ts, payouts }
-  let shown = {}; // n -> displayed { y, h }
+  let countRaf = null;
+  function countTo(v) {
+    const from = shownNonce == null ? Math.max(0, v - Math.min(v, 40)) : shownNonce;
+    if (countRaf) cancelAnimationFrame(countRaf);
+    if (reduced || from === v || typeof requestAnimationFrame === 'undefined') { shownNonce = v; return; }
+    const t0 = performance.now();
+    const f = (now) => {
+      const k = Math.min(1, (now - t0) / 700), e = 1 - Math.pow(1 - k, 3);
+      shownNonce = Math.round(from + (v - from) * e);
+      countRaf = k < 1 ? requestAnimationFrame(f) : null;
+    };
+    countRaf = requestAnimationFrame(f);
+  }
+
+  // ---- drips per day: hand SVG, bars tween to new heights (rAF, 600 ms ease-out); reduced motion applies at once
+  let dripDays = []; // { day, n (null = not covered), eth }
+  let recent = []; // the latest payouts
+  let dripsError = '';
+  let dripsLoading = true;
+  let dripsTimer = null;
+  let nowTs = Date.now();
+  let dripsBusy = false;
+  async function loadDrips() {
+    if (dripsBusy || !mounted) return;
+    dripsBusy = true;
+    try {
+      const { items, covered } = await fetchPayouts(fetch, CHAIN.explorer, faucetInfo.account, DRIP_DAYS);
+      dripDays = bucketPayouts(items, faucetInfo.account, DRIP_DAYS, covered);
+      recent = latestPayouts(items, faucetInfo.account);
+      dripsError = '';
+    } catch (error) {
+      console.error('Payout history failed:', error);
+      dripsError = 'The explorer index is not answering. Retrying every minute.';
+    } finally {
+      dripsBusy = false;
+      dripsLoading = false;
+    }
+  }
+  $: dripsToday = dripDays.length ? dripDays[dripDays.length - 1].n : null;
+  $: dripsWin = dripDays.reduce((s, d) => s + (d.n || 0), 0);
+  $: ethWin = dripDays.reduce((s, d) => s + (d.eth || 0), 0);
+  $: claimsLeft = balance != null && +faucetInfo.payout > 0 ? Math.floor(balance / +faucetInfo.payout + 1e-9) : null;
+
+  const CH = 200, ML = 34, MR = 10, MT = 12, MB = 26;
+  let plotW = 0;
+  $: CW = plotW || 640;
+  $: gridMax = niceMax(Math.max(0, ...dripDays.map((b) => b.n || 0)));
+  let bars = []; // { day, n, eth, x, w, y, h }
+  let shown = {}; // day -> displayed { y, h }
   let raf = null;
-  let gridMax = 4;
   let tipHtml = '';
   let tipX = 0, tipY = 0, tipOn = false;
-  $: layoutBars(blocks);
-  function layoutBars(list) {
+  $: layoutBars(dripDays, CW, gridMax);
+  function layoutBars(list, CW, max) {
     const n = list.length;
-    const max = Math.max(4, ...list.map((b) => b.txs));
-    const span = CW - ML - MR, slot = span / Math.max(1, n), bw = Math.max(3, Math.min(26, slot - 4));
+    const span = CW - ML - MR, slot = span / Math.max(1, n), bw = Math.max(3, Math.min(34, slot - 6));
     const base = CH - MB;
-    const target = list.map((b, i) => ({
-      n: b.n, x: ML + slot * i + (slot - bw) / 2, w: bw, pay: b.payouts > 0, txs: b.txs, ts: b.ts, payouts: b.payouts,
-      y: base - (b.txs ? Math.max(3, (CH - MT - MB) * b.txs / max) : 0), h: b.txs ? Math.max(3, (CH - MT - MB) * b.txs / max) : 0,
-    }));
-    gridMax = max;
-    const from = target.map((t) => shown[t.n] || { y: base, h: 0 });
+    const target = list.map((b, i) => {
+      const h = b.n ? Math.max(3, (CH - MT - MB) * b.n / max) : 0;
+      return { ...b, today: i === n - 1, x: ML + slot * i + (slot - bw) / 2, w: bw, y: base - h, h };
+    });
+    const from = target.map((t) => shown[t.day] || { y: base, h: 0 });
     if (raf) cancelAnimationFrame(raf);
-    if (reduced || !n) { bars = target; shown = Object.fromEntries(target.map((t) => [t.n, { y: t.y, h: t.h }])); return; }
+    if (reduced || !n || typeof requestAnimationFrame === 'undefined') { bars = target; shown = Object.fromEntries(target.map((t) => [t.day, { y: t.y, h: t.h }])); return; }
     const t0 = performance.now();
     const stepFn = (now) => {
       const k = Math.min(1, (now - t0) / 600), e = 1 - Math.pow(1 - k, 3);
       bars = target.map((t, i) => ({ ...t, y: from[i].y + (t.y - from[i].y) * e, h: from[i].h + (t.h - from[i].h) * e }));
       if (k < 1) raf = requestAnimationFrame(stepFn);
-      else { raf = null; shown = Object.fromEntries(target.map((t) => [t.n, { y: t.y, h: t.h }])); }
+      else { raf = null; shown = Object.fromEntries(target.map((t) => [t.day, { y: t.y, h: t.h }])); }
     };
     raf = requestAnimationFrame(stepFn);
   }
+  const dayLabel = (d) => new Date(d + 'T00:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
   function showTip(e, b) {
-    tipHtml = `<b>${b.txs} tx${b.txs === 1 ? '' : 's'}${b.payouts ? ` · ${b.payouts} faucet payout${b.payouts === 1 ? '' : 's'}` : ''}</b><br><span>block ${b.n.toLocaleString('en-US')} · ${new Date(b.ts * 1000).toLocaleTimeString()}</span>`;
+    const what = b.n === null ? 'not in the pages read' : `${b.n} payout${b.n === 1 ? '' : 's'}${b.n ? ` · ${fmtEth(b.eth)} ETH` : ''}`;
+    tipHtml = `<b>${what}</b><br><span>${dayLabel(b.day)} UTC${b.today ? ', so far today' : ''}</span>`;
     tipX = Math.min(e.clientX + 14, window.innerWidth - 240);
     tipY = e.clientY - 10;
     tipOn = true;
   }
-  // sparklines (200x40): blue, last mark green, like the landing's stat strip
-  const sparkBars = (vals) => {
-    const n = vals.length; if (!n) return [];
-    const max = Math.max(1e-9, ...vals), slot = 200 / n, bw = Math.max(2, slot - 2);
-    return vals.map((v, i) => ({ x: i * slot, w: bw, h: v > 0 ? Math.max(2, 34 * v / max) : 1, last: i === n - 1 }));
-  };
-  $: spTxs = sparkBars(blocks.slice(-20).map((b) => b.txs));
-  $: spPay = sparkBars(blocks.map((b) => b.payouts));
+  const fmtEth = (v) => (v >= 1 ? v.toFixed(2) : v >= 0.01 ? v.toFixed(3) : v.toFixed(4)).replace(/\.?0+$/, '');
 
-  // ---- stepper. With /api/info signin_required (the live config): 1 Sign in with Gully ID, 2 your address (filled from
-  //      Gully ID, from Connect wallet, or pasted), 3 claim. Without it: 1 add network, 2 request ETH, 3 start building.
+  // the mascot breathes only while it is on screen (transform only, off under reduced motion)
+  let mascotEl = null;
+  let mascotOn = false;
+  let mascotIO = null;
+  $: if (mascotEl && !mascotIO && typeof IntersectionObserver !== 'undefined') {
+    mascotIO = new IntersectionObserver((e) => (mascotOn = e[0].isIntersecting));
+    mascotIO.observe(mascotEl);
+  }
+
+  // ---- stepper. With /api/info signin_required (the live config): 1 sign in with Gully ID, 2 claim (the address is filled
+  //      from Gully ID, from Connect wallet, or pasted), 3 done. Without it: 1 add network, 2 request ETH, 3 start building.
   let step = 1;
   let networkAdded = false;
   let paid = false;
   // the last successful claim: ETH tx + the token drip (USDC.e) result, shown under the form
   let claimResult = null; // { ethTx, token: { symbol, amount, sent, tx, msg } | null }
   $: needSignIn = !!(faucetInfo.gullyid_client && faucetInfo.signin_required);
-  $: steps = needSignIn ? ['Sign in with Gully ID', 'Your address', 'Claim ETH'] : ['Add network', 'Request ETH', 'Start building'];
-  $: cur = needSignIn ? (paid ? 4 : !gullyToken ? 1 : !(input || '').trim() ? 2 : 3) : step;
+  $: payoutLabel = faucetInfo.payout ? `${faucetInfo.payout} ${faucetInfo.symbol}` : '–';
+  $: heroAmount = faucetInfo.payout || infoError ? payoutLabel : '0.000 ETH'; // invisible until /api/info answers: it only holds the line
+  $: steps = needSignIn || !mounted ? ['Sign in', 'Claim', 'Done'] : ['Add network', 'Request ETH', 'Start building'];
+  $: cur = needSignIn ? (paid ? 4 : !gullyToken ? 1 : 2) : !mounted ? 1 : step;
   $: claimBlocked = needSignIn && !gullyToken;
 
   // ---- Connect wallet: the shared Gully Chain dialog (public/gc-connect.js, canonical gully-ops sites/_shared/gc-connect,
@@ -371,7 +413,8 @@
     }
   }
 
-  onMount(async () => {
+  async function loadInfo() {
+    infoError = false;
     try {
       const res = await fetch('/api/info');
       if (!res.ok) {
@@ -379,20 +422,25 @@
       }
       faucetInfo = await res.json();
       mounted = true;
-      rpc('eth_getBalance', [faucetInfo.account, 'latest']).then((h) => (balance = parseInt(h, 16) / 1e18)).catch(() => {});
+      loadDrips();
+      pollBlock();
     } catch (error) {
       console.error('Failed to load faucet info:', error);
-      toast({
-        message: 'Failed to load faucet information. Please refresh the page.',
-        type: 'is-danger',
-      });
+      infoError = true;
     }
+  }
+  onMount(async () => {
+    await loadInfo();
     pollBlock();
     blockTimer = setInterval(pollBlock, 6000);
+    dripsTimer = setInterval(() => { if (document.visibilityState !== 'hidden') loadDrips(); }, 60000);
   });
   onDestroy(() => {
     if (blockTimer) clearInterval(blockTimer);
+    if (dripsTimer) clearInterval(dripsTimer);
     if (raf) cancelAnimationFrame(raf);
+    if (countRaf) cancelAnimationFrame(countRaf);
+    mascotIO?.disconnect();
   });
 
   // Register hCaptcha callback function
@@ -402,7 +450,7 @@
     };
   }
 
-  $: document.title = `GullyChain Testnet Faucet · ${faucetInfo.payout} ${faucetInfo.symbol} a day`;
+  $: if (faucetInfo.payout) document.title = `GullyChain Testnet Faucet · ${faucetInfo.payout} ${faucetInfo.symbol} a day`;
 
   $: if (
     mounted &&
@@ -554,6 +602,7 @@
       } else {
         const errorMessage = data?.msg || 'Request failed';
         toast({ message: errorMessage, type: 'is-danger' });
+        fieldError = errorMessage;
         // an app account that is not on chain yet (kre8 passkey accounts go on chain with their first action)
         if (target.from && sameAddress(address, target.to) && /no history/i.test(errorMessage)) fieldError = `Your ${appName(target.from)} account is not on chain yet. In ${appName(target.from)}, tap "Get test ETH" again: it puts the account on chain first (free), then sends you here.`;
       }
@@ -569,9 +618,9 @@
     }
   }
 
-  const fmtBlock = (n) => (n == null ? '—' : n.toLocaleString('en-US'));
+  const fmtBlock = (n) => (n == null ? '–' : n.toLocaleString('en-US'));
   const short = (a) => (a ? a.slice(0, 6) + '…' + a.slice(-4) : '');
-  const ago = (ts) => { const s = Math.max(0, Date.now() / 1000 - ts); return s < 60 ? Math.round(s) + 's' : s < 3600 ? Math.round(s / 60) + 'm' : (s / 3600).toFixed(1) + 'h'; };
+  const ago = (ts, now = Date.now()) => { const s = Math.max(0, now / 1000 - ts); return s < 60 ? Math.round(s) + 's' : s < 3600 ? Math.round(s / 60) + 'm' : s < 86400 ? (s / 3600).toFixed(1) + 'h' : Math.round(s / 86400) + 'd'; };
   const yTicks = (max) => [0, 1, 2, 3, 4].map((i) => ({ v: Math.round(max * i / 4), y: MT + (CH - MT - MB) * (1 - i / 4) }));
 </script>
 
@@ -611,8 +660,8 @@
     <div class="wrap">
       <div class="copy">
         <span class="badge">Testnet faucet · chain {CHAIN.id}</span>
-        <h1 id="h1">Testnet ETH, <em>{faucetInfo.payout}&nbsp;{faucetInfo.symbol}</em> a day</h1>
-        <p class="promise">{#if faucetInfo.signin_required}Sign in with Gully ID, then one claim per account, address and IP every 24 hours.{:else}One claim per address and per IP every 24 hours.{/if} {#if faucetInfo.token}Each claim also sends <b>{faucetInfo.token.amount} {faucetInfo.token.symbol}</b> (test stablecoin) while the daily {faucetInfo.token.symbol} budget lasts, for Gully Pay checkout and swaps. {/if}<b>Testnet ETH has no value</b>; use it to try the app, deploy contracts and test the bridge.</p>
+        <h1 id="h1">Testnet ETH, <em class:hold={!faucetInfo.payout && !infoError}>{heroAmount.replace(' ', '\u00a0')}</em> a day</h1>
+        <p class="promise">{#if faucetInfo.signin_required || !mounted}Sign in with Gully ID, then one claim per account, address and IP every 24 hours.{:else}One claim per address and per IP every 24 hours.{/if} {#if faucetInfo.token}Each claim also sends <b>{faucetInfo.token.amount} {faucetInfo.token.symbol}</b> (test stablecoin) while the daily {faucetInfo.token.symbol} budget lasts, for Gully Pay checkout and swaps. {/if}<b>Testnet ETH has no value</b>; use it to try the app, deploy contracts and test the bridge.</p>
 
         <ol class="stepper" aria-label="Steps" data-testid="stepper">
           {#each steps as label, i}
@@ -622,14 +671,21 @@
 
         <div id="hcaptcha" data-size="invisible"></div>
         <form id="claim" class="claim" onsubmit={(e) => { e.preventDefault(); if (!isLoading) handleRequest(); }}>
+          {#if infoError}
+            <div class="inforr" role="alert" data-testid="info-error"><p>The faucet did not answer, so its settings are not loaded.</p><button type="button" class="btn ter sm" onclick={loadInfo}>Try again</button></div>
+          {:else if !mounted}
+            <div class="sk" aria-hidden="true"></div>
+          {/if}
           {#if faucetInfo.gullyid_client}
             <GullySignIn clientId={faucetInfo.gullyid_client} issuer={faucetInfo.gullyid_issuer || undefined} required={!!faucetInfo.signin_required} onwallet={onGullyWallet} lockedNote={lockedTo ? `the claim pays your ${appName(target.from)} account ${short(lockedTo)}` : ''} />
           {/if}
+          {#if claimBlocked}<p id="claim-why" class="hint" data-testid="claim-why">The claim unlocks after you sign in (step 1): one claim per account a day.{#if lockedTo} It pays your {appName(target.from)} account <span class="mono">{short(lockedTo)}</span>.{/if}</p>{/if}
+          {#if mounted && !claimBlocked && !paid}
           <div class="addr-h">
-            <label class="lab" for="address">{#if needSignIn}<span class="sn">2</span>{/if}Your address or ENS name</label>
+            <label class="lab" for="address">Your address or ENS name</label>
             <button type="button" class="btn ter sm" data-testid="connect-wallet" onclick={connectWallet} disabled={connecting} aria-busy={connecting}><span class="ic">{@html icon('wallet')}</span>{walletName ? walletName + ' connected' : 'Connect wallet'}</button>
           </div>
-          <p class="hint addr-hint">{#if faucetInfo.gullyid_client}Filled in by Gully ID, or connect a wallet, or paste any address.{:else}Connect a wallet, or paste any address.{/if}</p>
+          {#if !(input || '').trim()}<p class="hint addr-hint">Connect a wallet, or paste any address.</p>{/if}
           <div class="field">
             <input
               id="address"
@@ -672,11 +728,14 @@
               <button type="button" class="btn sec sm" onclick={useMyGullyAccount} data-testid="use-my-gully-account"><span class="ic">{@html icon('wallet')}</span>Use my Gully account <span class="mono">{short(check.expected)}</span></button>
             </div>
           {/if}
-          {#if claimBlocked}<p id="claim-why" class="hint" data-testid="claim-why">The claim unlocks after you sign in with Gully ID (step 1): one claim per account a day.</p>{/if}
           {#if fieldError}<p id="address-err" class="ferr">{fieldError}</p>{/if}
+{#if faucetInfo.eligibility_check}<p class="hint">Pays your Gully wallet, or any address with a transaction on Gully Chain or Arbitrum Sepolia. Empty addresses are refused.</p>{/if}
+          {/if}
+          {#if paid}
+            <div class="done" data-testid="done">
           {#if claimResult}
             <div class="claim-result" role="status" data-testid="claim-result">
-              <p><span class="ic ok">{@html icon('check')}</span>{faucetInfo.payout} {faucetInfo.symbol} sent{#if claimResult.ethTx} · <a class="mono" href={`${CHAIN.explorer}/tx/${claimResult.ethTx}`} target="_blank" rel="noopener noreferrer">{short(claimResult.ethTx)}</a>{/if}</p>
+              <p><span class="ic ok">{@html icon('check')}</span>{faucetInfo.payout} {faucetInfo.symbol} sent{#if claimResult.ethTx}{' · '}<a class="mono" href={`${CHAIN.explorer}/tx/${claimResult.ethTx}`} target="_blank" rel="noopener noreferrer">{short(claimResult.ethTx)}</a>{/if}</p>
               {#if claimResult.token}
                 {#if claimResult.token.sent}
                   <p data-testid="token-sent"><span class="ic ok">{@html icon('check')}</span>{claimResult.token.amount} {claimResult.token.symbol} sent · <a class="mono" href={`${CHAIN.explorer}/tx/${claimResult.token.tx}`} target="_blank" rel="noopener noreferrer">{short(claimResult.token.tx)}</a></p>
@@ -686,63 +745,55 @@
               {/if}
             </div>
           {/if}
-          <p class="hint">Serving from <button type="button" class="addr mono" onclick={() => copyText(faucetInfo.account, 'Faucet address')} title="Copy the faucet address">{faucetInfo.account}</button>{#if faucetInfo.hcaptcha_sitekey} · protected by hCaptcha{/if}</p>
-          {#if faucetInfo.eligibility_check}<p class="hint">Send it to your Gully wallet, or to an address with at least one transaction on Gully Chain or Arbitrum Sepolia. Brand-new empty addresses are refused (bots farm those).</p>{/if}
+                        <p class="hint">Next claim in {faucetInfo.window_hours || 24} hours. What to do with it:</p>
+              <div class="ctas">
+                <button type="button" class="btn ter sm" onclick={addToWallet} disabled={addingChain}><span class="ic">{@html icon(networkAdded ? 'check' : 'plus')}</span>{networkAdded ? 'Network added' : 'Add GullyChain Testnet'}</button>
+                <a class="btn ter sm glow" href={LINKS[0].href} target="_blank" rel="noopener noreferrer"><span class="ic">{@html icon('rocket')}</span>Start building<span class="ic ar">{@html icon('arrow')}</span></a>
+              </div>
+            </div>
+          {/if}
         </form>
 
-        <div class="ctas">
-          <button type="button" class="btn sec" onclick={addToWallet} disabled={addingChain}>
-            <span class="ic">{@html icon(networkAdded ? 'check' : 'plus')}</span>{networkAdded ? 'Network added' : 'Add GullyChain Testnet'}<span class="ic ar">{@html icon('arrow')}</span>
-          </button>
-          <a class="btn ter" class:glow={paid} href={LINKS[0].href} target="_blank" rel="noopener noreferrer">
-            <span class="ic">{@html icon('rocket')}</span>Start building<span class="ic ar">{@html icon('arrow')}</span>
-          </a>
-        </div>
-        <div class="rpcrow"><span class="lab">RPC</span><code>{CHAIN.rpc}</code><button class="btn ter xs" type="button" onclick={() => copyText(CHAIN.rpc, 'RPC URL')}><span class="ic">{@html icon('copy')}</span>Copy</button></div>
       </div>
 
-      <div class="term wall" aria-labelledby="h-wall">
-        <div class="th"><span class="lab cy" id="h-wall"><span class="ic sm">{@html icon('radio')}</span>Transactions per block · last {BLOCKS_KEEP} blocks</span><div class="r">{#if blocks.length}<span>#{fmtBlock(blocks[0].n)} → #{fmtBlock(lastBlock.n)}</span>{/if}</div></div>
-        <div class="hn"><b class="num">{txsWin}</b><span>transactions in the window</span><span class="num">{payoutsWin} faucet payout{payoutsWin === 1 ? '' : 's'}</span>{#if lastBlock}<span class="num">base fee {lastBlock.baseFee.toFixed(2)} gwei</span>{/if}</div>
-        <div class="plot">
-          <svg class="main" viewBox="0 0 {CW} {CH}" role="img" aria-label="Transactions per block, last {BLOCKS_KEEP} blocks" onmouseleave={() => (tipOn = false)}>
-            {#each yTicks(gridMax) as t}
-              <line class="gl" x1={ML} x2={CW - MR} y1={t.y} y2={t.y} />
-              <text class="at" x={ML - 6} y={t.y + 4} text-anchor="end">{t.v}</text>
+      <div class="term wall" aria-labelledby="h-wall" data-testid="drips">
+        <div class="th"><span class="lab cy" id="h-wall"><span class="ic sm">{@html icon('droplet')}</span>Faucet drips · last {DRIP_DAYS} days</span><div class="r">UTC</div></div>
+        <div class="kpis">
+          <div class="kpi" title="Transactions the faucet account has ever sent (its on-chain nonce)"><b class="num" data-testid="drips-total">{shownNonce == null ? '–' : shownNonce.toLocaleString('en-US')}</b><span>{#if shownNonce == null && rpcDown}RPC not answering{:else}payouts all time{/if}</span></div>
+          <div class="kpi"><b class="num">{dripsToday == null ? '–' : dripsToday}</b><span>today{#if dripDays.length}{' · '}{dripsWin} in {DRIP_DAYS} days{/if}</span></div>
+          <div class="kpi" class:warn={claimsLeft != null && claimsLeft < 20} title="Faucet balance divided by one claim"><b class="num">{claimsLeft == null ? '–' : claimsLeft.toLocaleString('en-US')}</b><span>{balance == null ? (rpcDown ? 'RPC not answering' : 'claims left') : `claims left · ${fmtEth(balance)} ETH`}</span></div>
+        </div>
+        <div class="plot" bind:clientWidth={plotW}>
+          <svg class="main" viewBox="0 0 {CW} {CH}" height={CH} role="img" aria-label={dripDays.length ? `Faucet payouts per day, last ${DRIP_DAYS} days: ${dripsWin} payouts, ${fmtEth(ethWin)} ETH` : 'Faucet payouts per day: no data yet'} onmouseleave={() => (tipOn = false)}>
+            {#each [0, 1, 2, 3, 4] as i}
+              <line class="gl" x1={ML} x2={CW - MR} y1={MT + (CH - MT - MB) * (1 - i / 4)} y2={MT + (CH - MT - MB) * (1 - i / 4)} />
+              <text class="at" data-testid="ytick" x={ML - 6} y={MT + (CH - MT - MB) * (1 - i / 4) + 4} text-anchor="end">{Math.round(gridMax * i / 4)}</text>
             {/each}
             {#if bars.length}
-              <text class="at" x={ML} y={CH - 8}>#{fmtBlock(bars[0].n)}</text>
-              <text class="at" x={CW - MR} y={CH - 8} text-anchor="end">#{fmtBlock(bars[bars.length - 1].n)}</text>
+              <text class="at" x={ML} y={CH - 8}>{dayLabel(bars[0].day)}</text>
+              <text class="at" x={CW - MR} y={CH - 8} text-anchor="end">Today</text>
             {:else}
-              <text class="at empty" x={CW / 2} y={CH / 2} text-anchor="middle">Waiting for blocks…</text>
+              <text class="at empty" x={CW / 2} y={CH / 2} text-anchor="middle">{dripsError ? 'No chart: the explorer index is not answering' : 'Loading payouts…'}</text>
             {/if}
-            {#each bars as b (b.n)}
-              <rect class="bk" class:pay={b.pay} x={b.x} width={b.w} y={b.y} height={Math.max(0, b.h)} rx={Math.min(3, b.w / 2)} onmousemove={(e) => showTip(e, b)} />
+            {#each bars as b (b.day)}
+              <rect class="hit" x={b.x - 3} width={b.w + 6} y={MT} height={CH - MT - MB} onmousemove={(e) => showTip(e, b)} />
+              <rect class="bk" class:today={b.today} class:nodata={b.n === null} x={b.x} width={b.w} y={b.n ? b.y : CH - MB - 2} height={b.n ? Math.max(0, b.h) : 2} rx={Math.min(3, b.w / 2)} />
             {/each}
           </svg>
         </div>
-        <div class="tape" aria-label="Latest faucet payouts"><span class="lb lab">Faucet</span><div class="trk" class:static={!events.length}>
-          {#if events.length}
-            {#each events as e (e.hash)}
-              <span class="it"><span class="ic">{@html icon('droplet')}</span><b>{e.value} ETH</b> to <a class="mono" href="{CHAIN.explorer}/address/{e.to}" target="_blank" rel="noopener noreferrer">{short(e.to)}</a> · #{fmtBlock(e.n)} · {ago(e.ts)} ago</span>
+        {#if dripsError}<p class="note" role="status" data-testid="drips-error">{dripsError}</p>{:else if !dripsLoading && !dripsWin}<p class="note">No payouts in the last {DRIP_DAYS} days. Yours can be the first.</p>{/if}
+        {#if dripsLoading}<div class="recent-sk" aria-hidden="true"></div>{/if}
+        {#if recent.length}
+          <ul class="recent" aria-label="Latest faucet payouts">
+            {#each recent as e (e.hash)}
+              <li><span class="ic">{@html icon('droplet')}</span><b class="num">{fmtEth(e.eth)} ETH</b><span>to <a class="mono" href="{CHAIN.explorer}/address/{e.to}" target="_blank" rel="noopener noreferrer">{short(e.to)}</a></span><a class="when" href="{CHAIN.explorer}/tx/{e.hash}" target="_blank" rel="noopener noreferrer">{ago(e.ts, nowTs)} ago</a></li>
             {/each}
-          {:else}
-            <span class="it">No payouts in the last {BLOCKS_KEEP} blocks{#if lastBlock} · block #{fmtBlock(lastBlock.n)} · {ago(lastBlock.ts)} ago{/if}</span>
-          {/if}
-        </div></div>
+          </ul>
+        {/if}
+        <p class="hint src">Serving from <button type="button" class="addr mono" onclick={() => copyText(faucetInfo.account, 'Faucet address')} title="Copy the faucet address {faucetInfo.account}" aria-label="Copy the faucet address">{short(faucetInfo.account)}</button>{#if faucetInfo.hcaptcha_sitekey}{' · '}protected by hCaptcha{/if}</p>
       </div>
     </div>
   </section>
-
-  <div class="wrap" aria-label="Live numbers">
-    <div class="stats">
-      <div class="tile"><span class="lab">Latest block</span><div class="v num">{fmtBlock(blockNumber)}</div><svg class="spark" viewBox="0 0 200 40" preserveAspectRatio="none">{#each spTxs as b}<rect x={b.x} y={40 - b.h} width={b.w} height={b.h} class:last={b.last} />{/each}</svg><span class="sub">txs per block, last 20</span></div>
-      <div class="tile"><span class="lab">Transactions</span><div class="v num">{txsWin}<small>{BLOCKS_KEEP} blocks</small></div><span class="sub">{lastBlock ? lastBlock.txs + ' in the latest block' : 'waiting for blocks'}</span></div>
-      <div class="tile"><span class="lab">Faucet payouts</span><div class="v num">{payoutsWin}<small>{BLOCKS_KEEP} blocks</small></div><svg class="spark" viewBox="0 0 200 40" preserveAspectRatio="none">{#each spPay as b}<rect x={b.x} y={40 - b.h} width={b.w} height={b.h} class:last={b.last} />{/each}</svg><span class="sub">sent from <span class="mono">{short(faucetInfo.account)}</span></span></div>
-      <div class="tile" class:warn={claimsLeft != null && claimsLeft < 20}><span class="lab">Claims left</span><div class="v num">{claimsLeft == null ? '—' : claimsLeft.toLocaleString('en-US')}</div><span class="sub">{balance == null ? 'reading balance…' : balance.toFixed(4) + ' ETH / ' + faucetInfo.payout + ' ETH per claim'}</span></div>
-      <div class="tile"><span class="lab">Base fee</span><div class="v num">{lastBlock ? lastBlock.baseFee.toFixed(2) : '—'}<small>gwei</small></div><span class="sub">latest block</span></div>
-    </div>
-  </div>
 
   <section class="wrap more">
     <div class="group settings">
@@ -750,26 +801,26 @@
       <dl>
         <div><dt>Network name</dt><dd>{CHAIN.name}</dd></div>
         <div><dt>Chain ID</dt><dd class="num">{CHAIN.id}</dd></div>
-        <div><dt>RPC URL</dt><dd class="mono">{CHAIN.rpc}</dd></div>
+        <div><dt>RPC URL</dt><dd class="rpcdd"><span class="mono">{CHAIN.rpc}</span><button class="btn ter xs icon" type="button" aria-label="Copy the RPC URL" title="Copy the RPC URL" onclick={() => copyText(CHAIN.rpc, 'RPC URL')}><span class="ic">{@html icon('copy')}</span></button></dd></div>
         <div><dt>Currency</dt><dd>ETH</dd></div>
         <div><dt>Explorer</dt><dd class="mono"><a href={CHAIN.explorer} target="_blank" rel="noopener noreferrer">{CHAIN.explorer.replace('https://', '')}</a></dd></div>
       </dl>
+      <button type="button" class="btn ter sm netadd" onclick={addToWallet} disabled={addingChain}><span class="ic">{@html icon(networkAdded ? 'check' : 'plus')}</span>{networkAdded ? 'Network added' : 'Add GullyChain Testnet'}</button>
     </div>
     <div class="group band">
       <div class="band-copy">
         <p class="lab cy"><span class="ic">{@html icon('arrows')}</span>Need more than {faucetInfo.payout} {faucetInfo.symbol}?</p>
         <h2>Bridge from Arbitrum Sepolia</h2>
-        <p class="muted">Deposit Arbitrum Sepolia ETH through the testnet bridge, or read how the testnet works in the docs.</p>
+        <p class="muted">Deposit Arbitrum Sepolia ETH through the testnet bridge.</p>
         {#if faucetInfo.dev_tier}<p class="muted" data-testid="dev-tier">Building on GullyChain? Verified developers get <b>{faucetInfo.dev_tier.payout} {faucetInfo.symbol}</b> every {faucetInfo.dev_tier.window_hours} h with the same Gully ID sign-in. Email <a href="mailto:team@gullylabs.xyz?subject=Faucet%20developer%20tier">team@gullylabs.xyz</a> with your Gully ID and what you are building.</p>{/if}
         <div class="ctas">
           <a class="btn ter sm" href={LINKS[1].href} target="_blank" rel="noopener noreferrer"><span class="ic">{@html icon('arrows')}</span>Bridge<span class="ic ar">{@html icon('arrow')}</span></a>
-          <a class="btn ter sm" href={LINKS[2].href} target="_blank" rel="noopener noreferrer"><span class="ic">{@html icon('book')}</span>Docs<span class="ic ar">{@html icon('arrow')}</span></a>
+          <a class="btn ter sm" href={LINKS[0].href} target="_blank" rel="noopener noreferrer"><span class="ic">{@html icon('rocket')}</span>Start building<span class="ic ar">{@html icon('arrow')}</span></a>
         </div>
       </div>
-      <div class="mascot" aria-hidden="true">
+      <div class="mascot" class:on={mascotOn} bind:this={mascotEl} aria-hidden="true">
         <!-- kit v4 mascots/mascot-builder.png (630x502, byte for byte). The file itself is cut straight at its right edge, so it overhangs this frame and the cut stays hidden -->
-        <img src="/brand/mascots/mascot-builder.png" width="630" height="502" alt="" loading="lazy" />
-        <div class="fade"></div>
+        <img src="/brand/mascots/mascot-builder.png" width="630" height="502" alt="" loading="lazy" decoding="async" />
       </div>
     </div>
   </section>
@@ -796,7 +847,7 @@
       <span class="ic">{@html icon(t.icon)}</span>
       <div class="body">
         <b>{t.title}</b>
-        {#if t.message}<p>{t.message}{#if t.link} · <a href={t.link.href} target="_blank" rel="noopener noreferrer">{t.link.text}</a>{/if}</p>{/if}
+        {#if t.message}<p>{t.message}{#if t.link}{' · '}<a href={t.link.href} target="_blank" rel="noopener noreferrer">{t.link.text}</a>{/if}</p>{/if}
       </div>
       <button type="button" class="x" onclick={() => dismiss(t.id)} aria-label="Dismiss">{@html icon('x')}</button>
       <span class="pb" style="animation-duration:{t.ms}ms"></span>
@@ -893,12 +944,11 @@
   .copy { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
   .badge { display: inline-flex; align-items: center; gap: 8px; height: 28px; padding: 0 12px; border-radius: var(--gn-r-pill); background: var(--info-bg); border: 1px solid var(--gn-line-accent); color: var(--info); font-weight: var(--gn-w-bold); font-size: var(--gn-fs-xs); text-transform: uppercase; letter-spacing: 0.1em; width: max-content; max-width: 100%; }
   .copy h1 { font-size: clamp(32px, 3.6vw, 52px); }
+  .copy h1 em.hold { visibility: hidden; }
   .copy h1 em { font-style: normal; font-variant-numeric: tabular-nums; background: var(--gn-gradient); -webkit-background-clip: text; background-clip: text; color: transparent; }
   .copy .promise { color: var(--text-2); font-size: 15px; max-width: 540px; margin: 0; line-height: var(--gn-lh); }
   .copy .promise b { color: var(--text); }
   .ctas { display: flex; flex-wrap: wrap; gap: 10px; }
-  .rpcrow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 13px; color: var(--muted-c); }
-  .rpcrow code { font-family: var(--gn-font-mono); color: var(--text); background: var(--surface-2); border: 1px solid var(--border); padding: 4px 10px; border-radius: var(--gn-r-sm); font-size: 12.5px; overflow-wrap: anywhere; }
 
   /* stepper */
   .stepper { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 0; }
@@ -919,6 +969,7 @@
   .addr-h .sn { width: 20px; height: 20px; border-radius: 50%; display: inline-grid; place-items: center; background: var(--gn-surface-2); color: var(--gn-text); font-size: 11px; letter-spacing: 0; }
   .addr-hint { margin-top: -4px; }
   .input { flex: 1 1 auto; min-width: 0; min-height: var(--gn-btn-h); padding: 0 18px; border-radius: var(--gn-r-pill); border: 1px solid var(--border-2); background: var(--surface-2); color: var(--text); font-size: 14px; outline: none; transition: border-color var(--gn-dur), box-shadow var(--gn-dur); }
+  .input:not(:focus) { text-overflow: ellipsis; }
   .input::placeholder { color: var(--muted-c); opacity: 1; font-family: var(--gn-font); }
   .input:focus { border-color: var(--gn-cyan); box-shadow: 0 0 0 3px var(--gn-info-bg); }
   .input[aria-invalid='true'] { border-color: var(--danger); }
@@ -936,76 +987,65 @@
   .twarn-s { margin: 0; font-size: 13px; color: var(--text-2); }
   .twarn .mono { font-family: var(--f-mono); }
   .hint { margin: 0; font-size: 13px; color: var(--muted-c); overflow-wrap: anywhere; }
-  .addr { background: none; border: 0; padding: 0; color: var(--text-2); font-size: 12.5px; cursor: copy; border-bottom: 1px dashed var(--border-2); overflow-wrap: anywhere; word-break: break-all; text-align: left; }
-  .addr:hover { border-bottom-color: var(--gn-cyan); color: var(--link); }
+  .addr { background: none; border: 0; padding: 0; color: var(--text-2); font-size: 12.5px; cursor: copy; text-decoration: underline dashed var(--border-2); text-underline-offset: 3px; overflow-wrap: anywhere; word-break: break-all; text-align: left; }
+  .addr:hover { text-decoration-color: var(--gn-cyan); color: var(--link); }
 
   /* chart card */
   .term { border: 1px solid var(--border); border-radius: var(--gn-r-lg); background: var(--surface); position: relative; min-width: 0; display: flex; flex-direction: column; overflow: hidden; }
   .term .th { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 14px 16px 0; min-height: 34px; }
   .term .th .r { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted-c); font-variant-numeric: tabular-nums; }
-  .wall .hn { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; padding: 8px 16px 0; }
-  .wall .hn b { font-size: var(--gn-fs-stat); letter-spacing: -0.02em; line-height: 1; }
-  .wall .hn span { color: var(--muted-c); font-size: 13px; }
-  .wall .plot { padding: 8px 16px 6px; position: relative; flex: 1; }
-  .wall svg.main { width: 100%; height: auto; display: block; overflow: visible; }
+  .wall .plot { margin: 8px 16px 6px; position: relative; min-height: 200px; }
+  .wall svg.main { width: 100%; height: 200px; display: block; overflow: visible; }
   .gl { stroke: var(--gn-grid); stroke-width: 1; }
   .at { fill: var(--muted-c); font-family: var(--gn-font); font-weight: var(--gn-w-regular); font-size: 11px; }
   .at.empty { font-size: 13px; }
-  .bk { fill: var(--gn-c1); transition: fill var(--gn-dur); transform-box: fill-box; transform-origin: bottom; animation: grow 0.8s var(--gn-ease) both; }
-  .bk.pay { fill: var(--gn-c2); }
-  .bk:hover { fill: var(--gn-link-hover); }
-  @keyframes grow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+  .hit { fill: transparent; }
+  .bk { fill: var(--gn-c1); pointer-events: none; transition: fill var(--gn-dur); }
+  .bk.today { fill: var(--gn-c2); }
+  .bk.nodata { fill: var(--gn-grid); }
+  .hit:hover + .bk { fill: var(--gn-link-hover); }
   .tip { position: fixed; z-index: 60; pointer-events: none; background: var(--gn-surface-2); border: 1px solid var(--border-2); border-radius: var(--gn-r); padding: 8px 12px; font-size: 13px; color: var(--text); box-shadow: var(--gn-shadow-pop); opacity: 0; transition: opacity 0.12s; white-space: nowrap; }
   .tip.on { opacity: 1; }
   .tip :global(b) { font-weight: var(--gn-w-bold); font-variant-numeric: tabular-nums; }
   .tip :global(span) { color: var(--muted-c); }
-  /* tape */
-  .tape { border-top: 1px solid var(--border); height: 40px; display: flex; align-items: center; overflow: hidden; position: relative; background: var(--gn-night); }
-  .tape::before, .tape::after { content: ''; position: absolute; top: 0; bottom: 0; width: 40px; z-index: 2; pointer-events: none; }
-  .tape::before { left: 0; background: linear-gradient(90deg, var(--gn-night), transparent); }
-  .tape::after { right: 0; background: linear-gradient(270deg, var(--gn-night), transparent); }
-  .tape .lb { position: absolute; left: 0; top: 0; bottom: 0; z-index: 3; display: flex; align-items: center; padding: 0 12px; background: var(--gn-night); border-right: 1px solid var(--border); color: var(--text); }
-  .tape .trk { display: flex; white-space: nowrap; animation: tape 60s linear infinite; padding-left: 100%; will-change: transform; }
-  .tape .trk.static { animation: none; padding-left: 90px; }
-  .tape:hover .trk, .tape:focus-within .trk { animation-play-state: paused; }
-  .tape .it { display: inline-flex; align-items: center; gap: 8px; padding: 0 20px; font-size: 13px; color: var(--text-2); font-variant-numeric: tabular-nums; border-right: 1px solid var(--border); }
-  .tape .it b { color: var(--text); }
-  .tape .it .ic { width: 14px; height: 14px; color: var(--gn-green); }
-  @keyframes tape { to { transform: translateX(-100%); } }
-
-  /* stat tiles */
-  .stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 24px; }
-  .tile { padding: 16px 16px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--gn-r-lg); display: flex; flex-direction: column; gap: 6px; min-width: 0; position: relative; overflow: hidden; transition: border-color var(--gn-dur), box-shadow var(--gn-dur); }
-  .tile:hover { border-color: var(--gn-line-accent); box-shadow: var(--gn-glow); }
-  .tile .v { font-weight: var(--gn-w-bold); font-size: 26px; letter-spacing: -0.02em; line-height: 1.1; font-variant-numeric: tabular-nums; color: var(--text); }
-  .tile .v small { font-weight: var(--gn-w-regular); font-size: 12px; color: var(--muted-c); letter-spacing: 0; margin-left: 6px; }
-  .tile .sub { font-size: 12px; color: var(--muted-c); font-variant-numeric: tabular-nums; }
-  .tile svg.spark { width: 100%; height: 32px; display: block; overflow: visible; }
-  .tile.warn { background: var(--warn-bg); border-color: color-mix(in srgb, var(--gn-warn) 30%, transparent); }
-  .tile.warn .v { color: var(--warn); }
-  .spark rect { fill: var(--gn-c1); opacity: 0.85; transform-box: fill-box; transform-origin: bottom; animation: grow 0.8s var(--gn-ease) both; }
-  .spark rect.last { fill: var(--gn-c2); opacity: 1; }
+  /* drips: three live numbers, the chart, the latest payouts */
+  .kpis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; padding: 10px 16px 0; }
+  .kpi { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .kpi b { font-size: var(--gn-fs-stat); letter-spacing: -0.02em; line-height: 1.1; color: var(--text); }
+  .kpi span { font-size: 12px; color: var(--muted-c); }
+  .kpi.warn b { color: var(--warn); }
+  .recent-sk { height: 145px; border-top: 1px solid var(--border); }
+  .note { margin: 0; padding: 0 16px 8px; font-size: 13px; color: var(--text-2); }
+  .recent { list-style: none; margin: 0; padding: 0 16px; border-top: 1px solid var(--border); }
+  .recent li { display: flex; align-items: center; gap: 8px; min-height: 36px; font-size: 13px; color: var(--text-2); border-top: 1px solid var(--border); font-variant-numeric: tabular-nums; }
+  .recent li:first-child { border-top: 0; }
+  .recent b { color: var(--text); }
+  .recent .ic { width: 14px; height: 14px; color: var(--gn-green); }
+  .recent .when { margin-left: auto; color: var(--muted-c); white-space: nowrap; }
+  .recent .when:hover { color: var(--link); }
+  .hint.src { padding: 10px 16px 14px; border-top: 1px solid var(--border); font-size: 12px; }
 
   /* settings + bridge band; the builder mascot on night */
   .more { display: grid; grid-template-columns: 1fr; gap: 14px; margin: 14px auto 40px; }
   .group { background: var(--surface); border: 1px solid var(--border); border-radius: var(--gn-r-lg); padding: 18px; min-width: 0; }
   .settings .lab { margin-bottom: 8px; }
   dl { margin: 0; }
-  dl div { display: grid; grid-template-columns: 120px 1fr; gap: 12px; padding: 8px 0; border-top: 1px solid var(--border); font-size: 14px; }
+  dl div { display: grid; grid-template-columns: 100px minmax(0, 1fr); gap: 12px; padding: 8px 0; border-top: 1px solid var(--border); font-size: 14px; }
   dt { color: var(--muted-c); }
   dd { margin: 0; color: var(--text); overflow-wrap: anywhere; }
-  .band { display: grid; grid-template-columns: minmax(0, 1fr) 220px; gap: 16px; align-items: stretch; }
+  .band { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 16px; align-items: end; }
+  .band-copy { align-self: start; }
   .band-copy { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
   .band h2 { font-size: 24px; }
   .band .muted { font-size: 14px; }
   .band .ctas { margin-top: 4px; }
-  .mascot { position: relative; min-height: 200px; border-radius: var(--gn-r); background: var(--gn-night); overflow: hidden; pointer-events: none; }
+  .mascot { position: relative; aspect-ratio: 630 / 502; border-radius: var(--gn-r); background: var(--gn-night); overflow: hidden; pointer-events: none; }
   .mascot img { position: absolute; right: -8px; bottom: -6px; width: calc(100% + 8px); height: calc(100% + 2px); max-width: none; object-fit: contain; object-position: right bottom; transition: transform 0.3s ease; }
-  .group.band:hover .mascot img { transform: translate3d(0, -3px, 0); }
-  .mascot .fade { display: none; }
+  .mascot.on img { animation: mfloat 6s ease-in-out infinite; }
+  @keyframes mfloat { 50% { transform: translate3d(0, -3px, 0); } }
 
   /* footer (true black band) */
-  footer { border-top: 1px solid var(--border); padding: 32px 0 24px; background: var(--gn-black); color: var(--muted-c); }
+  footer { border-top: 1px solid var(--border); padding: 24px 0 20px; background: var(--gn-black); color: var(--muted-c); }
   footer .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 14px; align-items: center; }
   footer ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 16px; font-size: 14px; }
   footer ul a { color: var(--text-2); }
@@ -1025,11 +1065,24 @@
   @media (max-width: 640px) { .glb img { height: 26px; } }
 
   /* claim result (ETH + token drip) */
-  .claim-result { margin-top: 8px; padding: 10px 14px; border: 1px solid color-mix(in srgb, var(--gn-green) 28%, transparent); border-radius: var(--gn-r); background: var(--ok-bg); font-size: 14px; display: grid; gap: 6px; }
+  .claim-result { padding: 10px 14px; border: 1px solid color-mix(in srgb, var(--gn-green) 28%, transparent); border-radius: var(--gn-r); background: var(--ok-bg); font-size: 14px; display: grid; gap: 6px; }
   .claim-result p { margin: 0; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; word-break: break-word; }
   .claim-result .ic.ok { color: var(--ok); }
   .claim-result a { color: var(--link); }
   .claim-result .muted { color: var(--text-2); }
+
+  /* done step */
+  .done { display: grid; gap: 10px; }
+  .done .claim-result p:first-child { font-size: 16px; font-weight: var(--gn-w-bold); color: var(--text); }
+  /* before /api/info answers: the sign-in slot keeps its place, so nothing jumps */
+  .sk { height: 118px; border-radius: var(--gn-r); background: var(--surface-2); }
+  .inforr { display: grid; gap: 10px; justify-items: start; }
+  .inforr p { margin: 0; color: var(--text-2); font-size: 14px; }
+  .netadd { margin-top: 10px; }
+  .rpcdd { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .rpcdd .mono { min-width: 0; overflow-wrap: anywhere; }
+  .btn.icon { flex: none; width: 32px; min-height: 32px; padding: 0; }
+  .btn.icon .ic { width: 16px; height: 16px; }
 
   /* toasts */
   .toasts { position: fixed; right: 16px; bottom: 16px; z-index: 60; display: flex; flex-direction: column; gap: 8px; width: min(360px, calc(100vw - 32px)); pointer-events: none; }
@@ -1051,10 +1104,10 @@
   @keyframes pb { from { transform: scaleX(1); } to { transform: scaleX(0); } }
 
   @media (min-width: 700px) { .more { grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); } }
-  @media (min-width: 900px) { .hero { padding: 48px 0 40px; } .hero .wrap { grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: 32px; align-items: stretch; } .stats { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
-  @media (max-width: 899px) { .band { grid-template-columns: minmax(0, 1fr) 180px; } .stats > .tile:last-child:nth-child(odd) { grid-column: span 2; } }
-  @media (max-width: 640px) { footer ul a { display: inline-flex; align-items: center; min-height: 40px; } .btn.xs { min-height: 40px; } .addr { padding: 8px 0; } .hide-s { display: none; } .field { flex-direction: column; } .btn.pri { width: 100%; } .ctas .btn { flex: 1 1 auto; } .tape .trk { animation: none; padding-left: 90px; overflow-x: auto; } dl div { grid-template-columns: 1fr; gap: 2px; } .stepper li + li::before { width: 12px; margin: 0 6px; } .band { grid-template-columns: minmax(0, 1fr); } .mascot { min-height: 170px; } }
+  @media (min-width: 900px) { .hero { padding: 48px 0 40px; } .hero .wrap { grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: 32px; align-items: start; } }
+  @media (max-width: 899px) { .band { grid-template-columns: minmax(0, 1fr) 200px; } }
+  @media (max-width: 640px) { .claim-result a { display: inline-flex; align-items: center; min-height: 44px; } footer ul { row-gap: 0; } .rpcdd .mono { font-size: 12px; } .toast .x { width: 44px; height: 44px; margin: -10px -10px 0 0; } .glb, .gcb { min-height: 44px; align-items: center; } footer ul a { display: inline-flex; align-items: center; min-height: 44px; min-width: 44px; } .btn.sm, .btn.xs { min-height: 44px; } .btn.icon { width: 44px; } .addr { display: inline-flex; align-items: center; min-height: 44px; padding: 0; } .logo, .fwm { min-width: 44px; min-height: 44px; align-items: center; justify-content: center; } .menubtn { width: 44px; height: 44px; } .recent li { min-height: 44px; } .recent .when { display: inline-flex; align-items: center; min-height: 44px; min-width: 44px; justify-content: flex-end; } .band { grid-template-columns: 1fr; } .mascot { width: 100%; max-width: 300px; justify-self: end; } .hide-s { display: none; } .field { flex-direction: column; } .btn.pri { width: 100%; } .ctas .btn { flex: 1 1 auto; } .tape .trk { animation: none; padding-left: 90px; overflow-x: auto; } dl div { grid-template-columns: 1fr; gap: 2px; } .stepper li + li::before { width: 12px; margin: 0 6px; } .band { grid-template-columns: minmax(0, 1fr); } .mascot { min-height: 170px; } }
   /* below 400 px the header holds the kit logo and the switcher only; the Latest block tile carries the live number */
   @media (max-width: 399px) { .navr .pill { display: none; } }
-  @media (prefers-reduced-motion: reduce) { .pill .dot, .toast, .btn::after, .spinner, .bk, .spark rect { animation: none !important; } .toast .pb { display: none; } .tape .trk { animation: none; padding-left: 90px; overflow-x: auto; } .btn, .btn .ar, .mascot img { transition: none; } .btn:hover:not(:disabled) .ar, .group.band:hover .mascot img { transform: none; } }
+  @media (prefers-reduced-motion: reduce) { .pill .dot, .toast, .btn::after, .spinner, .mascot.on img { animation: none !important; } .toast .pb { display: none; } .btn, .btn .ar, .mascot img { transition: none; } .btn:hover:not(:disabled) .ar, .group.band:hover .mascot img { transform: none; } }
 </style>
