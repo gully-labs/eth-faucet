@@ -18,8 +18,8 @@ test('form order: Sign in with Gully ID, then Connect wallet, then the address, 
 });
 
 test('stepper copy matches the signin_required flow', () => {
-  assert.match(faucet, /needSignIn \? \['Sign in with Gully ID', 'Your address', 'Claim ETH'\]/);
-  assert.match(faucet, /cur = needSignIn \? \(paid \? 4 : !gullyToken \? 1 : !\(input \|\| ''\)\.trim\(\) \? 2 : 3\)/);
+  assert.match(faucet, /needSignIn \|\| !mounted \? \['Sign in', 'Claim', 'Done'\]/);
+  assert.match(faucet, /cur = needSignIn \? \(paid \? 4 : !gullyToken \? 1 : 2\)/);
   assert.match(form, /disabled=\{isLoading \|\| claimBlocked\}/, 'claim disabled until signed in');
   assert.match(form, /data-testid="claim-why"/, 'with a reason');
   assert.match(faucet, /Sign in with Gully ID, then one claim per account/);
