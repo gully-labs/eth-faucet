@@ -39,6 +39,7 @@ var (
 	keyPassFlag  = flag.String("wallet.keypass", "password.txt", "Passphrase text file to decrypt keystore")
 	privKeyFlag  = flag.String("wallet.privkey", os.Getenv("PRIVATE_KEY"), "Private key hex to fund user requests with")
 	providerFlag = flag.String("wallet.provider", os.Getenv("WEB3_PROVIDER"), "Ethereum JSON-RPC endpoint, or a comma-separated ordered list with automatic fallback (empty = the Gully Chain testnet public list)")
+	chainIDsFlag = flag.String("faucet.chainids", os.Getenv("FAUCET_ALLOWED_CHAIN_IDS"), "Comma-separated chain ids the faucet may pay out on; the RPC's chain id is checked at start-up and mainnets are always refused (empty = 485590, Gully Chain Testnet)")
 
 	hcaptchaSiteKeyFlag = flag.String("hcaptcha.sitekey", os.Getenv("HCAPTCHA_SITEKEY"), "hCaptcha sitekey")
 	hcaptchaSecretFlag  = flag.String("hcaptcha.secret", os.Getenv("HCAPTCHA_SECRET"), "hCaptcha secret")
@@ -121,10 +122,15 @@ func Execute() {
 		chainID = big.NewInt(int64(value))
 	}
 
-	txBuilder, err := chain.NewTxBuilder(*providerFlag, privateKey, chainID)
+	allowedChains, err := chain.ParseChainIDs(*chainIDsFlag)
 	if err != nil {
-		panic(fmt.Errorf("cannot connect to web3 provider: %w", err))
+		panic(fmt.Errorf("faucet.chainids: %w", err))
 	}
+	txBuilder, err := chain.NewTxBuilder(*providerFlag, privateKey, chainID, allowedChains)
+	if err != nil {
+		panic(fmt.Errorf("refusing to start: %w", err))
+	}
+	log.WithFields(log.Fields{"allowed_chain_ids": allowedChains}).Info("chain id checked")
 
 	config := server.NewConfig(*netnameFlag, *symbolFlag, *httpPortFlag, *intervalFlag, *proxyCntFlag, *payoutFlag, *hcaptchaSiteKeyFlag, *hcaptchaSecretFlag)
 	if err := config.SetGullyID(*gullyIDClientFlag, *gullyIDIssuerFlag); err != nil {
