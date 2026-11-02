@@ -85,8 +85,8 @@ func TestVerifyChain(t *testing.T) {
 	}
 }
 
-// rpcServer answers eth_chainId with id; every other method gets a JSON-RPC error (the guard must stop before them).
-func rpcServer(t *testing.T, id int64) (*httptest.Server, *[]string) {
+// chainIDServer answers eth_chainId with id; every other method gets a JSON-RPC error (the guard must stop before them).
+func chainIDServer(t *testing.T, id int64) (*httptest.Server, *[]string) {
 	var calls []string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var req struct {
@@ -109,7 +109,7 @@ func rpcServer(t *testing.T, id int64) (*httptest.Server, *[]string) {
 func TestNewTxBuilderRefusesAMainnetRPC(t *testing.T) {
 	key, _ := crypto.HexToECDSA("976f9f7772781ff6d1c93941129d417c49a209c674056a3cf5e27e225ee55fa8")
 	for _, id := range []int64{48559, 42161, 421614} {
-		srv, calls := rpcServer(t, id)
+		srv, calls := chainIDServer(t, id)
 		b, err := NewTxBuilder(srv.URL, key, nil, DefaultAllowedChainIDs)
 		if err == nil || b != nil {
 			t.Fatalf("chain %d: builder created", id)
@@ -121,7 +121,7 @@ func TestNewTxBuilderRefusesAMainnetRPC(t *testing.T) {
 		}
 	}
 	// a configured mainnet id cannot bypass the guard, even when it is also on the list
-	srv, _ := rpcServer(t, 48559)
+	srv, _ := chainIDServer(t, 48559)
 	if _, err := NewTxBuilder(srv.URL, key, big.NewInt(48559), []int64{48559}); err == nil {
 		t.Fatal("configured mainnet id accepted")
 	}
