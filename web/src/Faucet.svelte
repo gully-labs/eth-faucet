@@ -767,7 +767,7 @@
         </div>
       </div>
       <div class="mascot" aria-hidden="true">
-        <!-- kit v4 mascots/mascot-builder.png (630x502, byte for byte, uncropped) on the night ground -->
+        <!-- kit v4 mascots/mascot-builder.png (630x502, byte for byte). The file itself is cut straight at its right edge, so it overhangs this frame and the cut stays hidden -->
         <img src="/brand/mascots/mascot-builder.png" width="630" height="502" alt="" loading="lazy" />
         <div class="fade"></div>
       </div>
@@ -1000,8 +1000,8 @@
   .band .muted { font-size: 14px; }
   .band .ctas { margin-top: 4px; }
   .mascot { position: relative; min-height: 200px; border-radius: var(--gn-r); background: var(--gn-night); overflow: hidden; pointer-events: none; }
-  .mascot img { position: absolute; inset: 8px; width: calc(100% - 16px); height: calc(100% - 16px); max-width: none; object-fit: contain; object-position: center bottom; transition: transform 0.3s ease; }
-  .group.band:hover .mascot img { transform: scale(1.04) rotate(-2deg); }
+  .mascot img { position: absolute; right: -8px; bottom: -6px; width: calc(100% + 8px); height: calc(100% + 2px); max-width: none; object-fit: contain; object-position: right bottom; transition: transform 0.3s ease; }
+  .group.band:hover .mascot img { transform: translate3d(0, -3px, 0); }
   .mascot .fade { display: none; }
 
   /* footer (true black band) */
