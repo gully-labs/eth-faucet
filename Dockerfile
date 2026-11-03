@@ -1,4 +1,5 @@
-FROM node:lts-alpine as frontend
+# node 22 (as the web tests): node:lts is 26 now, which no longer ships yarn
+FROM node:22-alpine as frontend
 
 WORKDIR /frontend-build
 
