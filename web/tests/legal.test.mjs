@@ -7,7 +7,6 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const WEB = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const ROOT = resolve(WEB, '..');
 const read = (p) => readFileSync(join(WEB, p), 'utf8');
 const faucet = read('src/Faucet.svelte');
 const notFound = read('404.html');
@@ -39,12 +38,7 @@ test('the consent line sits next to the claim button and links both pages', () =
   assert.match(p, /Testnet ETH has no value\./);
 });
 
-test('the Go server 301s /terms and /privacy to gullychain.xyz', () => {
-  const go = readFileSync(join(ROOT, 'internal/server/legal.go'), 'utf8');
-  assert.match(go, /"\/terms":\s+"https:\/\/gullychain\.xyz\/terms"/);
-  assert.match(go, /"\/privacy":\s+"https:\/\/gullychain\.xyz\/privacy"/);
-  assert.match(readFileSync(join(ROOT, 'internal/server/server.go'), 'utf8'), /registerLegalRedirects\(router\)/);
-});
+// The Go 301s for /terms and /privacy are covered by internal/server/legal_test.go (the web tests run with web/ only).
 
 test('no draft legal marker and no old docs.gullychain.xyz/privacy link in the web sources', () => {
   const files = ['index.html', '404.html', ...readdirSync(join(WEB, 'src'), { recursive: true }).map((f) => `src/${f}`)].filter((f) => /\.(svelte|js|css|html)$/.test(f));
