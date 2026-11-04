@@ -46,6 +46,14 @@
   const SOURCE = 'https://github.com/gully-labs/eth-faucet';
   // Every other Gully product is listed once, on the docs ecosystem page (owner rule 2026-10-29: Gully Chain nav only).
   const ECOSYSTEM = 'https://docs.gullychain.xyz/ecosystem/';
+  // Gully Chain's one Terms of Service and Privacy Policy (gullychain.xyz) cover the faucet; the Go server 301s
+  // /terms and /privacy here to them (internal/server/legal.go). Another origin: new tab.
+  const TERMS = 'https://gullychain.xyz/terms';
+  const PRIVACY = 'https://gullychain.xyz/privacy';
+  const LEGAL = [
+    { name: 'Terms', href: TERMS, icon: 'file' },
+    { name: 'Privacy', href: PRIVACY, icon: 'shield' },
+  ];
   // Official GullyChain channels (every GullyChain footer carries them).
   const SOCIALS = [
     { name: 'Telegram', href: 'https://t.me/GullyChain', icon: 'send' },
@@ -56,6 +64,7 @@
 
   // Lucide icons (ISC, lucide.dev): 24-unit paths, drawn at 20px, stroke 1.75
   const ICONS = {
+    file: '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/>',
     grid: '<rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/>',
     arrows: '<path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/>',
     book: '<path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/>',
@@ -718,6 +727,7 @@
               {/if}
             </button>
           </div>
+          <p class="hint consent" data-testid="consent">By requesting testnet ETH you agree to the Gully Chain <a href={TERMS} target="_blank" rel="noopener noreferrer">Terms<span class="gn-sr"> (opens in a new tab)</span></a> and <a href={PRIVACY} target="_blank" rel="noopener noreferrer">Privacy Policy<span class="gn-sr"> (opens in a new tab)</span></a>. Testnet ETH has no value.</p>
           {#if lockedTo}
             <p class="lockline" data-testid="locked-to"><span class="ic">{@html icon('check')}</span><span>Pays your {appName(target.from)} account <span class="mono">{short(lockedTo)}</span>, the one {appName(target.from)} shows your balance for.</span> <button type="button" class="linkbtn" onclick={unlockTarget}>Use another address</button></p>
           {/if}
@@ -830,6 +840,7 @@
   <div class="wrap">
     <div><a class="fwm" href="https://gullychain.xyz" aria-label="Gully Chain home"><img src="/brand/logo/gc-icon.svg" width="32" height="32" alt="Gully Chain" loading="lazy" /></a><span class="tag">Testnet faucet · chain {CHAIN.id}</span></div>
     <nav class="fnav" aria-label="GullyChain products"><ul>{#each PRODUCTS as l}<li><a href={l.href}><span class="ic">{@html icon(l.icon)}</span>{l.name}</a></li>{/each}<li><a href={SOURCE} target="_blank" rel="noopener noreferrer"><span class="ic">{@html icon('branch')}</span>Source</a></li><li><a href={ECOSYSTEM} target="_blank" rel="noopener noreferrer"><span class="ic">{@html icon('layers')}</span>Gully ecosystem →</a></li></ul></nav>
+    <ul class="fnav" aria-label="Legal" data-testid="legal">{#each LEGAL as l}<li><a href={l.href} target="_blank" rel="noopener noreferrer"><span class="ic">{@html icon(l.icon)}</span>{l.name}<span class="gn-sr"> (opens in a new tab)</span></a></li>{/each}</ul>
     <ul class="fnav" aria-label="Official GullyChain channels">{#each SOCIALS as l}<li><a href={l.href} target="_blank" rel="noopener noreferrer"><span class="ic">{@html icon(l.icon)}</span>{l.name}</a></li>{/each}</ul>
     <div class="fbot">
       <p class="copy2">Testnet only. Tokens have no value. MIT, a fork of chainflag/eth-faucet.</p>
@@ -987,6 +998,8 @@
   .twarn-s { margin: 0; font-size: 13px; color: var(--text-2); }
   .twarn .mono { font-family: var(--f-mono); }
   .hint { margin: 0; font-size: 13px; color: var(--muted-c); overflow-wrap: anywhere; }
+  .hint.consent a { color: var(--text-2); text-decoration: underline; text-underline-offset: 2px; }
+  .hint.consent a:hover { color: var(--text); }
   .addr { background: none; border: 0; padding: 0; color: var(--text-2); font-size: 12.5px; cursor: copy; text-decoration: underline dashed var(--border-2); text-underline-offset: 3px; overflow-wrap: anywhere; word-break: break-all; text-align: left; }
   .addr:hover { text-decoration-color: var(--gn-cyan); color: var(--link); }
 
