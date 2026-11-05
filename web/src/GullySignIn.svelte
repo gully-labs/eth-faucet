@@ -1,5 +1,12 @@
 <script>
-  // Step 1 of the claim, "Sign in with Gully ID" (owner 2026-10-30: the sign-in must be visible and prominent).
+  // "Sign in with Gully ID". Two places (owner 2026-11-05: any wallet, Gully ID optional):
+  //   required = false (the live config): a clearly optional, secondary action UNDER the address field. It fills in the
+  //     Gully wallet and unlocks brand-new wallets; the address field and the claim never wait for it. The button is
+  //     outlined, and turns into the primary button (`highlight`) only after a "no history" refusal.
+  //   required = true: step 1 of the claim (owner 2026-10-30: the sign-in must be visible and prominent).
+  // Nothing opens Gully ID by itself: mount only preloads the SDK and restores an existing session; the sign-in window
+  // opens on a press of the button. "Opening Gully ID…" never sticks: it has a Cancel, and a watchdog puts the button
+  // back after a minute (a blocked or abandoned popup never settles its promise).
   // The button is OUR kit v4 primary button and is in the markup from the first paint: it never waits for the Gully ID
   // SDK and is never hidden. Before 2026-10-30 the row stayed display:none until the SDK had loaded and rendered its own
   // button, so a slow, blocked or failed SDK load left the page saying "Sign in with Gully" with no button at all.
@@ -11,12 +18,13 @@
   import { onMount, onDestroy } from 'svelte';
   import { loadGullyID, shortAddress, DEFAULT_GULLY_ID_ISSUER } from './gullyid.js';
 
-  let { clientId, issuer = DEFAULT_GULLY_ID_ISSUER, required = false, onwallet = () => {}, lockedNote = '' } = $props();
+  let { clientId, issuer = DEFAULT_GULLY_ID_ISSUER, required = false, highlight = false, onwallet = () => {}, lockedNote = '', busyMs = 60000 } = $props();
 
   let gully = $state(null); // GullyID.init(...) once the SDK is in
   let user = $state(null);
   let busy = $state(false);
   let error = $state('');
+  let watchdog = null;
   const cleanups = [];
   let destroyed = false;
 
@@ -52,13 +60,26 @@
 
   onDestroy(() => {
     destroyed = true;
+    clearTimeout(watchdog);
     for (const fn of cleanups.splice(0)) {
       try { fn(); } catch {}
     }
   });
 
-  function fail(e) {
+  function idle() {
     busy = false;
+    clearTimeout(watchdog);
+    watchdog = null;
+  }
+
+  // the person gave up on the sign-in window (or it never opened): the button is usable again at once
+  function cancel() {
+    idle();
+    error = '';
+  }
+
+  function fail(e) {
+    idle();
     if (e?.code === 'closed' || e?.code === 4001 || /closed|cancel/i.test(e?.message || '')) { error = ''; return; }
     error = 'Sign-in did not finish: ' + (e?.message || 'Gully ID is unreachable') + '.';
   }
@@ -67,17 +88,23 @@
     if (busy) return;
     error = '';
     busy = true;
+    clearTimeout(watchdog);
+    watchdog = setTimeout(() => {
+      if (!busy) return;
+      idle();
+      error = required ? 'Gully ID did not answer.' : 'Gully ID did not answer. Sign-in is optional: you can paste any address above.';
+    }, busyMs);
     if (gully) {
       // SDK ready: the popup opens synchronously inside this click
       let p;
       try { p = gully.signIn({ mode: 'popup' }); } catch (e) { return fail(e); }
-      Promise.resolve(p).then((s) => { busy = false; if (s) apply(s); }, fail);
+      Promise.resolve(p).then((s) => { idle(); if (s) apply(s); }, fail);
       return;
     }
     // SDK not in yet: load it, then the redirect flow (needs no user gesture, so a late load cannot be popup-blocked)
     start().then((g) => {
       if (!g) return fail(new Error('Gully ID is unreachable'));
-      return Promise.resolve(g.signIn({ mode: 'redirect' })).then(() => { busy = false; });
+      return Promise.resolve(g.signIn({ mode: 'redirect' })).then(() => { idle(); });
     }).catch(fail);
   }
 
@@ -87,9 +114,9 @@
   }
 </script>
 
-<div class="gid" data-testid="gid-step" aria-live="polite">
+<div class="gid" class:opt={!required} data-testid="gid-step" aria-live="polite">
   {#if !required && !user}
-    <div class="gid-h"><p class="gid-t"><b>Sign in with Gully ID</b><span class="gid-opt">Optional</span></p></div>
+    <div class="gid-h"><p class="gid-t"><b>Brand-new wallet?</b><span class="gid-opt" data-testid="gid-optional-pill">Optional</span></p></div>
   {/if}
   {#if user}
     <p class="gid-who" data-testid="gid-who">
@@ -100,12 +127,12 @@
       <button type="button" class="gid-link out" onclick={signOut}>Sign out</button>
     </p>
   {:else}
-    <button type="button" class="gid-btn" data-testid="gid-signin" onclick={signIn} disabled={busy} aria-busy={busy}>
+    <button type="button" class="gid-btn" class:sec={!required && !highlight} data-testid="gid-signin" onclick={signIn} disabled={busy} aria-busy={busy}>
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10" cy="7" r="4"/><path d="M10.3 15H7a4 4 0 0 0-4 4v2"/><circle cx="17" cy="16" r="3"/><path d="m21 20-1.9-1.9"/></svg>
       <span>{busy ? 'Opening Gully ID…' : 'Sign in with Gully ID'}</span>
       <svg class="ar" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
     </button>
-    <p class="gid-sub">{#if required}Required: a passkey, no seed phrase.{:else}Fills in your Gully wallet address. Any address works without it.{/if}</p>
+    <p class="gid-sub">{#if busy}Finish in the Gully ID window. <button type="button" class="gid-link cancel" data-testid="gid-cancel" onclick={cancel}>Cancel</button>{:else if required}Required: a passkey, no seed phrase.{:else}Signing in funds a wallet with no transactions yet and fills in your Gully wallet. Any wallet that has made a transaction works without it.{/if}</p>
   {/if}
   {#if error}<p class="gid-err" role="alert" data-testid="gid-error">{error} <button type="button" class="gid-link" onclick={signIn}>Retry</button></p>{/if}
 </div>
@@ -119,6 +146,9 @@
   .gid-btn { all: unset; box-sizing: border-box; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-height: 48px; padding: 0 22px; border-radius: var(--gn-r-pill); width: 100%;
     background: var(--gn-emerald); color: var(--gn-night); font: 700 15px/1 var(--gn-font); transition: transform var(--gn-dur-fast), filter var(--gn-dur-fast); }
   .gid-btn:hover { filter: brightness(1.08); }
+  /* optional sign-in: outlined, so the claim button stays the one primary action of the form */
+  .gid-btn.sec { background: transparent; color: var(--gn-text); border: 1px solid var(--gn-line-strong); font-weight: 600; }
+  .gid-btn.sec:hover { filter: none; background: var(--gn-surface-2); }
   .gid-btn:active { transform: scale(0.98); }
   .gid-btn:focus-visible, .gid-link:focus-visible { outline: 2px solid var(--gn-mint); outline-offset: 2px; }
   .gid-btn[disabled] { cursor: progress; opacity: 0.8; }
@@ -132,7 +162,7 @@
   .gid-av { width: 22px; height: 22px; border-radius: 50%; object-fit: cover; flex: none; border: 1px solid var(--gc-line); }
   .gid-who span { min-width: 0; flex: 1 1 auto; }
   .gid-link { all: unset; cursor: pointer; color: var(--gn-mint); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
-  @media (max-width: 640px) { .gid-link.out { display: inline-flex; align-items: center; min-height: 44px; } }
+  @media (max-width: 640px) { .gid-link.out, .gid-link.cancel { display: inline-flex; align-items: center; min-height: 44px; } }
   .gid-err { margin: 0; font-size: 13px; color: var(--gn-error); }
   @media (prefers-reduced-motion: reduce) { .gid-btn, .gid-btn .ar { transition: none; } .gid-btn:active { transform: none; } }
 </style>

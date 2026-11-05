@@ -1,4 +1,4 @@
-// node --test tests/: the claim flow order (Sign in with Gully ID > Connect wallet > address > claim), the shared
+// node --test tests/: the claim flow order (Connect wallet > address > claim > optional Sign in with Gully ID), the shared
 // Connect-a-wallet dialog filling the address, and brand guards that FAIL on typed wordmarks, kit v3 art or colours,
 // and consumer-app links on this Gully Chain surface (owner 2026-10-30).
 import { test } from 'node:test';
@@ -12,17 +12,38 @@ const read = (p) => readFileSync(join(WEB, p), 'utf8');
 const faucet = read('src/Faucet.svelte');
 const form = faucet.slice(faucet.indexOf('<form id="claim"'), faucet.indexOf('</form>'));
 
-test('form order: Sign in with Gully ID, then Connect wallet, then the address, then the claim', () => {
-  const a = form.indexOf('<GullySignIn'), b = form.indexOf('data-testid="connect-wallet"'), c = form.indexOf('id="address"'), d = form.indexOf('data-testid="claim"');
-  assert.ok(a > 0 && a < b && b < c && c < d, `order ${a} ${b} ${c} ${d}`);
+test('form order: Connect wallet, the address, the claim, then the optional Sign in with Gully ID (required mode: sign-in first)', () => {
+  // required mode keeps the sign-in as step 1, above everything
+  const req = form.indexOf('{#if needSignIn}\n            <GullySignIn'), b = form.indexOf('data-testid="connect-wallet"'), c = form.indexOf('id="address"'), d = form.indexOf('data-testid="claim"');
+  assert.ok(req > 0 && req < b && b < c && c < d, `order ${req} ${b} ${c} ${d}`);
+  // optional mode (owner 2026-11-05): the address field is first, the sign-in is a secondary action under the claim
+  const opt = form.indexOf('data-testid="gid-optional"');
+  assert.ok(opt > d, `the optional sign-in comes after the claim button: ${opt} ${d}`);
+  assert.match(form.slice(opt, opt + 400), /<GullySignIn [^>]*required=\{false\}/);
+  assert.equal(form.split('<GullySignIn').length - 1, 2, 'one sign-in per mode');
 });
 
-test('stepper copy matches the signin_required flow', () => {
-  assert.match(faucet, /needSignIn \|\| !mounted \? \['Sign in', 'Claim', 'Done'\]/);
-  assert.match(faucet, /cur = needSignIn \? \(paid \? 4 : !gullyToken \? 1 : 2\)/);
-  assert.match(form, /disabled=\{isLoading \|\| claimBlocked\}/, 'claim disabled until signed in');
+test('stepper and copy follow the sign-in mode', () => {
+  assert.match(faucet, /steps = needSignIn \? \['Sign in', 'Claim', 'Done'\] : \['Enter address', 'Request ETH', 'Done'\]/);
+  assert.match(faucet, /cur = needSignIn \? \(paid \? 4 : !gullyToken \? 1 : 2\) : paid \? 4 : hasAddress \? 2 : 1/);
+  assert.match(faucet, /needSignIn = mounted && mode === 'required'/, 'only required mode locks the claim');
+  assert.match(faucet, /claimBlocked = needSignIn && !gullyToken/);
+  assert.match(form, /disabled=\{isLoading \|\| claimBlocked\}/, 'required mode: claim disabled until signed in');
   assert.match(form, /data-testid="claim-why"/, 'with a reason');
   assert.match(faucet, /Sign in with Gully ID, then one claim per account/);
+  assert.match(faucet, /Paste any wallet address: one claim per address and per IP every 24 hours\. Signing in with Gully ID is optional and also funds brand-new wallets\./);
+});
+
+test('nothing opens Gully ID by itself: signIn is only called from the button press', () => {
+  const gid = read('src/GullySignIn.svelte');
+  const calls = gid.match(/\.signIn\(/g) || [];
+  assert.equal(calls.length, 2, 'popup and redirect, both inside signIn()');
+  const fn = gid.slice(gid.indexOf('function signIn()'), gid.indexOf('function signOut()'));
+  assert.equal((fn.match(/\.signIn\(/g) || []).length, 2);
+  assert.match(gid, /onclick=\{signIn\}/);
+  const mount = gid.slice(gid.indexOf('onMount('), gid.indexOf('onDestroy('));
+  assert.doesNotMatch(mount, /signIn/, 'mount only preloads the SDK');
+  assert.doesNotMatch(faucet, /\.signIn\(|gully\.open|GullyID\.init/, 'the page itself never opens Gully ID');
 });
 
 test('Connect wallet uses the shared dialog and fills the address with accounts[0]', async () => {

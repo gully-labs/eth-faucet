@@ -49,17 +49,22 @@ func (s *Server) setupRouter() *http.ServeMux {
 		gid = nil
 	}
 	s.store = NewStore(p.StateFile)
-	var devGID GullyIDVerifier
-	if s.cfg.devTier.enabled() {
-		devGID = p.GullyID
-		if devGID == nil {
-			devGID = NewGullyIDVerifier(s.cfg.gullyIDIssuer, s.cfg.gullyIDClient)
+	// sign-in optional (Gully ID is set up but not required): a claim that carries a session gets it checked
+	var optGID GullyIDVerifier
+	if s.cfg.signInMode() == SignInOptional {
+		optGID = p.GullyID
+		if optGID == nil {
+			issuer := s.cfg.gullyIDIssuer
+			if issuer == "" {
+				issuer = DefaultGullyIDIssuer
+			}
+			optGID = NewGullyIDVerifier(issuer, s.cfg.gullyIDClient)
 		}
 	}
 	guard := NewGuard(s.store, ipr, GuardOptions{
 		Window: time.Duration(s.cfg.interval) * time.Minute, Payout: chain.EtherToWei(s.cfg.payout), Symbol: s.cfg.symbol,
 		Deny: p.Deny, GullyID: gid, Activity: p.Activity, HourCap: ethCap(p.HourCapEth), DayCap: ethCap(p.DayCapEth), Alert: p.Alert,
-		DevTier: s.cfg.devTier, DevGID: devGID,
+		DevTier: s.cfg.devTier, OptionalGID: optGID,
 	})
 	hcaptcha := NewCaptcha(s.cfg.hcaptchaSiteKey, s.cfg.hcaptchaSecret)
 	// captcha first: a bot without a captcha token never reaches the Gully ID / RPC checks
@@ -132,6 +137,23 @@ func (s *Server) handleClaim() http.HandlerFunc {
 	}
 }
 
+// Sign-in modes, as /api/info reports them (signin_mode) so the page knows which flow to show.
+const (
+	SignInRequired = "required" // no Gully ID session, no claim
+	SignInOptional = "optional" // any address works; a session adds brand-new wallets and the per-account window
+	SignInOff      = "off"      // Gully ID is not set up
+)
+
+func (c *Config) signInMode() string {
+	switch {
+	case c.protection.GullyIDRequired:
+		return SignInRequired
+	case c.gullyIDClient != "":
+		return SignInOptional
+	}
+	return SignInOff
+}
+
 func (c *Config) devTierInfo() *devTierInfo {
 	if !c.devTier.enabled() {
 		return nil
@@ -154,6 +176,7 @@ func (s *Server) handleInfo() http.HandlerFunc {
 			GullyIDClient:   s.cfg.gullyIDClient,
 			GullyIDIssuer:   s.cfg.gullyIDIssuer,
 			SignInRequired:  s.cfg.protection.GullyIDRequired,
+			SignInMode:      s.cfg.signInMode(),
 			Eligibility:     s.cfg.protection.Activity != nil,
 			WindowHours:     float64(s.cfg.interval) / 60,
 			Token:           s.cfg.tokenInfo(),

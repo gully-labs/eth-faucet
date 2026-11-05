@@ -32,6 +32,7 @@ type infoResponse struct {
 	GullyIDClient   string       `json:"gullyid_client,omitempty"`
 	GullyIDIssuer   string       `json:"gullyid_issuer,omitempty"`
 	SignInRequired  bool         `json:"signin_required"`
+	SignInMode      string       `json:"signin_mode"` // "required", "optional" or "off" (see signInMode)
 	Eligibility     bool         `json:"eligibility_check"`
 	WindowHours     float64      `json:"window_hours"`
 	Token           *tokenInfo   `json:"token,omitempty"`
