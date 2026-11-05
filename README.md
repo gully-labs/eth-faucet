@@ -122,6 +122,20 @@ The following are the available command-line flags(excluding above wallet flags)
 | -hcaptcha.sitekey | hCaptcha sitekey                                 |               |
 | -hcaptcha.secret  | hCaptcha secret                                  |               |
 
+**Sign-in modes (Gully fork)**
+
+`/api/info` reports the mode as `signin_mode` (`signin_required` is kept for older pages).
+
+| Mode | Setting | Who is paid |
+|---|---|---|
+| `optional` (live on Gully Chain since 2026-11-05) | `-gullyid.client` set, `-gullyid.required` off | Without a session: any address that passes the eligibility check (`-faucet.eligibility`: at least one transaction, or a contract, on one of `-faucet.activityrpcs`). With a valid Gully ID session (`Authorization: Bearer`): any address, a brand-new one included, and one claim per Gully ID account per window on top of the address and IP windows. |
+| `required` | `-gullyid.required` / `FAUCET_REQUIRE_GULLY_ID=true` | Only signed-in users, to their own Gully smart account or an address with history. No session is a 401; a Gully ID outage is a 503. |
+| `off` | no `-gullyid.client` | Sessions are ignored. |
+
+In `optional` mode a missing, expired or invalid session, or a Gully ID outage, never fails a claim: it goes on as a
+claim without a session. hCaptcha, the denylist, the address and IP windows and the hourly/daily budgets apply in every
+mode.
+
 **Token drip (test stablecoin, Gully fork)**
 
 With `-token.address` set, every successful ETH claim also sends a small ERC-20 amount (on Gully Chain: 1 USDC.e,
@@ -146,7 +160,7 @@ sent drips count against the budget; the lifetime total is kept in the state fil
 
 With `-devtier.amount` above 0, signed-in Gully ID users who are verified developers get a larger drip on a shorter
 cooldown, so teams building on Gully Chain can deploy and test without asking for ETH by hand. hCaptcha and the Gully ID
-sign-in stay mandatory for the tier (when `-gullyid.required` is off, a valid session only upgrades a claim; without one
+sign-in stay mandatory for the tier (when `-gullyid.required` is off, a valid session upgrades the claim; without one
 the claim is a normal one). A user qualifies when **any** of these holds:
 
 - their Gully ID subject (`sub`) is on the allowlist (`-devtier.subs` or the allowlist file),

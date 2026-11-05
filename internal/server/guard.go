@@ -23,6 +23,15 @@ import (
 // client IP, Gully ID account; developer tier: account and address on its own shorter window), the global hourly/daily
 // budget (plus the developer budget), then recipient eligibility (not for the developer tier). Windows and payouts live in a Store that is
 // persisted to disk, so restarts do not reset them. A send that fails rolls its reservation back.
+//
+// Sign-in has three modes (owner 2026-11-05: "i should be able to send test eth to any wallet not just gullyid"):
+//   - required (gid): no valid session, no claim. A signed-in user is paid to their own Gully smart account or to an
+//     address with history.
+//   - optional (optGID, the live setting): without a session any address with history is paid (the eligibility check is
+//     what stopped the 2026-10-27 farm, so it stays for anonymous claims). A valid session adds the per-account window
+//     and may pay ANY address, a brand-new one included. A missing, expired or invalid session, or a Gully ID outage,
+//     never fails the claim: it is an anonymous claim.
+//   - off (neither): no sessions at all.
 type Guard struct {
 	store    *Store
 	ip       *IPResolver
@@ -31,11 +40,11 @@ type Guard struct {
 	symbol   string
 	deny     map[string]bool
 	gid      GullyIDVerifier // nil = sign-in not required
+	optGID   GullyIDVerifier // sign-in optional: checks the session a claim carries (nil = sessions are ignored)
 	activity ActivityChecker // nil = no eligibility check
 	hourCap  *big.Int        // nil = no cap
 	dayCap   *big.Int
 	dev      *DevTier        // nil = no developer tier
-	devGID   GullyIDVerifier // verifies an optional session for the developer tier when sign-in is not required
 	devPay   *big.Int
 	devCap   *big.Int // nil = no developer budget of its own
 	alert    Alerter
@@ -54,7 +63,9 @@ type GuardOptions struct {
 	DayCap   *big.Int
 	Alert    Alerter
 	DevTier  *DevTier
-	DevGID   GullyIDVerifier // used for the developer tier when GullyID is nil (sign-in optional)
+	// OptionalGID verifies the session of a claim when GullyID is nil (sign-in optional): the per-account window, any
+	// recipient for a verified user, and the developer tier. Ignored when GullyID is set.
+	OptionalGID GullyIDVerifier
 }
 
 func NewGuard(store *Store, ip *IPResolver, o GuardOptions) *Guard {
@@ -66,11 +77,11 @@ func NewGuard(store *Store, ip *IPResolver, o GuardOptions) *Guard {
 	}
 	g := &Guard{store: store, ip: ip, window: o.Window, payout: o.Payout, symbol: o.Symbol, deny: o.Deny, gid: o.GullyID,
 		activity: o.Activity, hourCap: o.HourCap, dayCap: o.DayCap, alert: o.Alert}
+	if o.GullyID == nil {
+		g.optGID = o.OptionalGID
+	}
 	if o.DevTier.enabled() {
-		g.dev, g.devGID, g.devPay = o.DevTier, o.DevGID, chain.EtherToWei(o.DevTier.Payout)
-		if g.devGID == nil {
-			g.devGID = o.GullyID
-		}
+		g.dev, g.devPay = o.DevTier, chain.EtherToWei(o.DevTier.Payout)
 		if o.DevTier.DayCap > 0 {
 			g.devCap = chain.EtherToWei(o.DevTier.DayCap)
 		}
@@ -166,6 +177,26 @@ func (g *Guard) budgetLocked(amount *big.Int, dev bool) string {
 	return ""
 }
 
+// Refusals for a recipient with no history. "no history" stays in every variant: the page keys on it.
+const (
+	msgFreshRequired = "This address has no history yet. Send the ETH to your Gully wallet (the smart account of your Gully ID), or to an address that has made at least one transaction on Gully Chain or Arbitrum Sepolia."
+	msgFreshOptional = "This address has no history yet. Sign in with Gully ID to fund a brand-new wallet, or use a wallet that has made at least one transaction on Gully Chain or Arbitrum Sepolia."
+	msgFreshGIDDown  = "This address has no history yet, and we could not check your Gully ID sign-in right now. Try again in a minute, or use a wallet that has made at least one transaction on Gully Chain or Arbitrum Sepolia."
+	msgFreshNoSignIn = "This address has no history yet. Use a wallet that has made at least one transaction on Gully Chain or Arbitrum Sepolia."
+)
+
+func (g *Guard) freshAddressMessage(gidDown bool) string {
+	switch {
+	case g.gid != nil:
+		return msgFreshRequired
+	case g.optGID != nil && gidDown:
+		return msgFreshGIDDown
+	case g.optGID != nil:
+		return msgFreshOptional
+	}
+	return msgFreshNoSignIn
+}
+
 func (g *Guard) limitedLocked(keys map[string]string) string {
 	for _, k := range []string{"gid", "addr", "ip"} {
 		key, ok := keys[k]
@@ -212,6 +243,7 @@ func (g *Guard) ServeHTTP(w http.ResponseWriter, r *http.Request, next http.Hand
 
 	keys := map[string]string{"addr": "addr:" + addr, "ip": "ip:" + ipBucket(clientIP)}
 	var user *GullyUser
+	gidDown := false // optional mode: a session was sent but Gully ID could not check it
 	if g.gid != nil {
 		ctx, cancel := context.WithTimeout(r.Context(), 7*time.Second)
 		user, err = g.gid.Verify(ctx, bearer(r))
@@ -228,14 +260,25 @@ func (g *Guard) ServeHTTP(w http.ResponseWriter, r *http.Request, next http.Hand
 		}
 		keys["gid"] = "gid:" + user.Sub
 		logf = logf.WithField("gid", user.Sub)
-	} else if g.dev != nil && g.devGID != nil && bearer(r) != "" {
-		// sign-in is optional here: a valid session can only upgrade the claim to the developer tier
-		ctx, cancel := context.WithTimeout(r.Context(), 7*time.Second)
-		if u, err := g.devGID.Verify(ctx, bearer(r)); err == nil {
-			user = u
-		}
+	} else if g.optGID != nil && bearer(r) != "" {
+		// Sign-in is optional: a valid session adds the per-account window, lifts the fresh-address check below and can
+		// qualify for the developer tier. An expired or invalid one, or a Gully ID outage, must not fail the claim: it
+		// goes on as an anonymous claim (address + IP windows, eligibility check).
+		ctx, cancel := context.WithTimeout(r.Context(), 4*time.Second)
+		u, verr := g.optGID.Verify(ctx, bearer(r))
 		cancel()
+		switch {
+		case verr == nil && u != nil && u.Sub != "":
+			user = u
+			keys["gid"] = "gid:" + u.Sub
+			logf = logf.WithField("gid", u.Sub)
+		case verr != nil && !errors.Is(verr, errNotSignedIn):
+			gidDown = true
+			logf.WithError(verr).Warn("optional Gully ID session could not be checked: claim treated as anonymous")
+		}
 	}
+	// a verified session while sign-in is optional: the account is known and rate limited, so any recipient is fine
+	anyRecipient := g.gid == nil && user != nil
 
 	payout, window, tier := g.payout, g.window, "standard"
 	if ok, why := g.dev.Match(user, addr); ok {
@@ -265,7 +308,7 @@ func (g *Guard) ServeHTTP(w http.ResponseWriter, r *http.Request, next http.Hand
 		return
 	}
 
-	if g.activity != nil && !dev && !(user != nil && user.SmartAccounts()[addr]) {
+	if g.activity != nil && !dev && !anyRecipient && !(user != nil && user.SmartAccounts()[addr]) {
 		ctx, cancel := context.WithTimeout(r.Context(), 8*time.Second)
 		ok, err := g.activity.HasActivity(ctx, address)
 		cancel()
@@ -276,7 +319,7 @@ func (g *Guard) ServeHTTP(w http.ResponseWriter, r *http.Request, next http.Hand
 		}
 		if !ok {
 			logf.Info("claim refused: fresh address")
-			g.fail(w, http.StatusForbidden, "This address has no history yet. Send the ETH to your Gully wallet (the smart account of your Gully ID), or to an address that has made at least one transaction on Gully Chain or Arbitrum Sepolia.")
+			g.fail(w, http.StatusForbidden, g.freshAddressMessage(gidDown))
 			return
 		}
 	}

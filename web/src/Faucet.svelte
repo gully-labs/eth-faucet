@@ -105,7 +105,8 @@
   // Sign in with Gully (only when /api/info has gullyid_client): fill the field with the main wallet, but never
   // overwrite an address the visitor typed; clear it again on sign-out only if it is still the filled-in one.
   let gullyFilled = null;
-  let gullyToken = null; // session access token, sent as Authorization: Bearer when the faucet requires sign-in
+  let gullyToken = null; // session access token, sent as Authorization: Bearer (required mode: the gate; optional mode: unlocks brand-new wallets)
+  let freshRefused = false; // the last claim was refused because the address has no history
   let gullyMain = null; // the Gully ID main wallet (profile `wallet`)
   let gullyWallets = []; // every wallet of the Gully ID (profile `wallets`), to tell "yours, but not kre8's" apart
   // An app link (kre8 "Get test ETH": ?to=<account>&from=kre8) locks the field to the account the app uses, so the
@@ -117,6 +118,8 @@
   function onGullyWallet(address, user, session) {
     gullyToken = session?.accessToken || null;
     gullyMain = address || null;
+    // signed in after a "no history" refusal: the brand-new wallet can be funded now, so the refusal goes
+    if (gullyToken && freshRefused) { freshRefused = false; fieldError = ''; }
     gullyWallets = Array.isArray(user?.wallets) ? user.wallets : [];
     if (lockedTo) {
       if (step < 2 && address) step = 2;
@@ -331,23 +334,31 @@
     mascotIO.observe(mascotEl);
   }
 
-  // ---- stepper. With /api/info signin_required (the live config): 1 sign in with Gully ID, 2 claim (the address is filled
-  //      from Gully ID, from Connect wallet, or pasted), 3 done. Without it: 1 add network, 2 request ETH, 3 start building.
+  // ---- sign-in mode, from /api/info signin_mode (owner 2026-11-05: any wallet, Gully ID optional):
+  //      optional (the live config): the address field is first and usable at once: 1 enter address, 2 request ETH,
+  //        3 done. "Sign in with Gully ID" is a secondary action under the field: it fills the address and unlocks
+  //        brand-new wallets (the server skips its no-history check for a verified account).
+  //      required: 1 sign in with Gully ID, 2 claim, 3 done; the claim stays locked until the session is there.
+  //      off: no Gully ID at all, same steps as optional.
+  //      Nothing here opens Gully ID by itself: only a press on the sign-in button does.
   let step = 1;
   let networkAdded = false;
   let paid = false;
   // the last successful claim: ETH tx + the token drip (USDC.e) result, shown under the form
   let claimResult = null; // { ethTx, token: { symbol, amount, sent, tx, msg } | null }
-  $: needSignIn = !!(faucetInfo.gullyid_client && faucetInfo.signin_required);
+  $: mode = faucetInfo.signin_mode || (faucetInfo.gullyid_client ? (faucetInfo.signin_required ? 'required' : 'optional') : 'off');
+  $: needSignIn = mounted && mode === 'required';
+  $: signInOptional = mounted && mode === 'optional';
+  $: hasAddress = !!(input || '').trim();
   $: payoutLabel = faucetInfo.payout ? `${faucetInfo.payout} ${faucetInfo.symbol}` : '–';
   $: heroAmount = faucetInfo.payout || infoError ? payoutLabel : '0.000 ETH'; // invisible until /api/info answers: it only holds the line
-  $: steps = needSignIn || !mounted ? ['Sign in', 'Claim', 'Done'] : ['Add network', 'Request ETH', 'Start building'];
-  $: cur = needSignIn ? (paid ? 4 : !gullyToken ? 1 : 2) : !mounted ? 1 : step;
+  $: steps = needSignIn ? ['Sign in', 'Claim', 'Done'] : ['Enter address', 'Request ETH', 'Done'];
+  $: cur = needSignIn ? (paid ? 4 : !gullyToken ? 1 : 2) : paid ? 4 : hasAddress ? 2 : 1;
   $: claimBlocked = needSignIn && !gullyToken;
 
   // ---- Connect wallet: the shared Gully Chain dialog (public/gc-connect.js, canonical gully-ops sites/_shared/gc-connect,
   //      byte for byte): Gully Wallet (passkey) first, WalletConnect, detected EIP-6963 wallets, then install links.
-  //      It only fills the address field; with signin_required the claim still needs the Gully ID sign-in above.
+  //      It only fills the address field; in required mode the claim still needs the Gully ID sign-in above.
   let connecting = false;
   let walletName = '';
   async function connectWallet() {
@@ -538,7 +549,8 @@
       // Signed in with Gully ID and paying another address than the Gully account kre8 uses: warn once, pay on the
       // second press (the warning above the field says why and offers "Use my Gully account").
       const c = targetCheck({ field: address, signedIn: !!gullyMain || !!gullyToken, gullyMain, gullyWallets, lockedTo: target.to, from: target.from });
-      if (c.state === 'mismatch' && !confirmOther) {
+      // Only in required mode: with sign-in optional any wallet is a normal target, so the note stays but one press pays.
+      if (needSignIn && c.state === 'mismatch' && !confirmOther) {
         confirmOther = true;
         notify({ title: c.title, message: 'Tap "Use my Gully account", or press Send again to pay this address anyway.', type: 'is-warning', icon: 'wallet', ms: 9000 });
         return;
@@ -548,14 +560,14 @@
       const headers = {
         'Content-Type': 'application/json',
       };
-      if (faucetInfo.signin_required) {
-        if (!gullyToken) {
-          fieldError = 'Sign in with Gully ID first (step 1): one claim per Gully ID a day.';
-          toast({ message: 'Sign in with Gully ID to claim testnet ETH.', type: 'is-warning' });
-          return;
-        }
-        headers['Authorization'] = 'Bearer ' + gullyToken;
+      if (needSignIn && !gullyToken) {
+        fieldError = 'Sign in with Gully ID first (step 1): one claim per Gully ID a day.';
+        toast({ message: 'Sign in with Gully ID to claim testnet ETH.', type: 'is-warning' });
+        return;
       }
+      // required: the session is the gate. optional: it is sent when there is one (any address, one claim per account);
+      // without it the claim goes out as it is.
+      if (gullyToken && mode !== 'off') headers['Authorization'] = 'Bearer ' + gullyToken;
 
       // Execute hCaptcha verification
       if (hcaptchaLoaded && widgetID !== null) {
@@ -608,12 +620,20 @@
           notify({ title: `No ${data.token.symbol} this time`, message: data.token.msg, type: 'is-warning' });
         }
         input = '';
+        freshRefused = false;
       } else {
         const errorMessage = data?.msg || 'Request failed';
-        toast({ message: errorMessage, type: 'is-danger' });
         fieldError = errorMessage;
+        freshRefused = /no history/i.test(errorMessage);
+        if (freshRefused && signInOptional) {
+          // a brand-new wallet: the sign-in under the field is what funds it
+          if (gullyToken) fieldError = 'This address has no history yet and your Gully ID session was not accepted (it may have expired). Sign out and sign in again to fund a brand-new wallet, or use a wallet that has made at least one transaction on Gully Chain or Arbitrum Sepolia.';
+          notify({ title: 'Brand-new wallet', message: gullyToken ? 'Sign in with Gully ID again to fund it.' : 'Sign in with Gully ID (below the address) to fund it, or use a wallet that has made a transaction.', type: 'is-warning', icon: 'wallet', ms: 10000 });
+        } else {
+          toast({ message: errorMessage, type: 'is-danger' });
+        }
         // an app account that is not on chain yet (kre8 passkey accounts go on chain with their first action)
-        if (target.from && sameAddress(address, target.to) && /no history/i.test(errorMessage)) fieldError = `Your ${appName(target.from)} account is not on chain yet. In ${appName(target.from)}, tap "Get test ETH" again: it puts the account on chain first (free), then sends you here.`;
+        if (target.from && sameAddress(address, target.to) && freshRefused) fieldError = signInOptional && !gullyToken ? `Your ${appName(target.from)} account is not on chain yet. Sign in with Gully ID below to fund it now, or in ${appName(target.from)} tap "Get test ETH" again: it puts the account on chain first (free), then sends you here.` : `Your ${appName(target.from)} account is not on chain yet. In ${appName(target.from)}, tap "Get test ETH" again: it puts the account on chain first (free), then sends you here.`;
       }
     } catch (error) {
       console.error('Request failed:', error);
@@ -670,7 +690,7 @@
       <div class="copy">
         <span class="badge">Testnet faucet · chain {CHAIN.id}</span>
         <h1 id="h1">Testnet ETH, <em class:hold={!faucetInfo.payout && !infoError}>{heroAmount.replace(' ', '\u00a0')}</em> a day</h1>
-        <p class="promise">{#if faucetInfo.signin_required || !mounted}Sign in with Gully ID, then one claim per account, address and IP every 24 hours.{:else}One claim per address and per IP every 24 hours.{/if} {#if faucetInfo.token}Each claim also sends <b>{faucetInfo.token.amount} {faucetInfo.token.symbol}</b> (test stablecoin) while the daily {faucetInfo.token.symbol} budget lasts, for Gully Pay checkout and swaps. {/if}<b>Testnet ETH has no value</b>; use it to try the app, deploy contracts and test the bridge.</p>
+        <p class="promise" data-testid="promise">{#if needSignIn}Sign in with Gully ID, then one claim per account, address and IP every 24 hours.{:else if signInOptional}Paste any wallet address: one claim per address and per IP every 24 hours. Signing in with Gully ID is optional and also funds brand-new wallets.{:else}Paste any wallet address: one claim per address and per IP every 24 hours.{/if} {#if faucetInfo.token}Each claim also sends <b>{faucetInfo.token.amount} {faucetInfo.token.symbol}</b> (test stablecoin) while the daily {faucetInfo.token.symbol} budget lasts, for Gully Pay checkout and swaps. {/if}<b>Testnet ETH has no value</b>; use it to try the app, deploy contracts and test the bridge.</p>
 
         <ol class="stepper" aria-label="Steps" data-testid="stepper">
           {#each steps as label, i}
@@ -685,8 +705,8 @@
           {:else if !mounted}
             <div class="sk" aria-hidden="true"></div>
           {/if}
-          {#if faucetInfo.gullyid_client}
-            <GullySignIn clientId={faucetInfo.gullyid_client} issuer={faucetInfo.gullyid_issuer || undefined} required={!!faucetInfo.signin_required} onwallet={onGullyWallet} lockedNote={lockedTo ? `the claim pays your ${appName(target.from)} account ${short(lockedTo)}` : ''} />
+          {#if needSignIn}
+            <GullySignIn clientId={faucetInfo.gullyid_client} issuer={faucetInfo.gullyid_issuer || undefined} required={true} onwallet={onGullyWallet} lockedNote={lockedTo ? `the claim pays your ${appName(target.from)} account ${short(lockedTo)}` : ''} />
           {/if}
           {#if claimBlocked}<p id="claim-why" class="hint" data-testid="claim-why">The claim unlocks after you sign in (step 1): one claim per account a day.{#if lockedTo} It pays your {appName(target.from)} account <span class="mono">{short(lockedTo)}</span>.{/if}</p>{/if}
           {#if mounted && !claimBlocked && !paid}
@@ -732,14 +752,20 @@
             <p class="lockline" data-testid="locked-to"><span class="ic">{@html icon('check')}</span><span>Pays your {appName(target.from)} account <span class="mono">{short(lockedTo)}</span>, the one {appName(target.from)} shows your balance for.</span> <button type="button" class="linkbtn" onclick={unlockTarget}>Use another address</button></p>
           {/if}
           {#if check.state === 'mismatch'}
-            <div class="twarn" role="alert" data-testid="not-your-account">
-              <p class="twarn-h"><span class="ic">{@html icon('info')}</span>{check.title}</p>
-              <p class="twarn-s">{check.detail}</p>
+            <div class="twarn" class:soft={!needSignIn} role={needSignIn ? 'alert' : 'note'} data-testid="not-your-account">
+              <p class="twarn-h"><span class="ic">{@html icon('info')}</span>{needSignIn ? check.title : 'Paying another wallet than your Gully account'}</p>
+              <p class="twarn-s">{needSignIn ? check.detail : 'That is fine: any address works. kre8 shows only the balance of your Gully account, so this ETH will not appear there.'}</p>
               <button type="button" class="btn sec sm" onclick={useMyGullyAccount} data-testid="use-my-gully-account"><span class="ic">{@html icon('wallet')}</span>Use my Gully account <span class="mono">{short(check.expected)}</span></button>
             </div>
           {/if}
           {#if fieldError}<p id="address-err" class="ferr">{fieldError}</p>{/if}
-{#if faucetInfo.eligibility_check}<p class="hint">Pays your Gully wallet, or any address with a transaction on Gully Chain or Arbitrum Sepolia. Empty addresses are refused.</p>{/if}
+{#if faucetInfo.eligibility_check}<p class="hint" data-testid="who-is-paid">{#if needSignIn}Pays your Gully wallet, or any address with a transaction on Gully Chain or Arbitrum Sepolia. Empty addresses are refused.{:else if signInOptional && gullyToken}Signed in with Gully ID: any address works, brand-new wallets included.{:else if signInOptional}Works for any wallet that has made a transaction on Gully Chain or Arbitrum Sepolia. Brand-new wallet? Sign in with Gully ID below.{:else}Works for any wallet that has made a transaction on Gully Chain or Arbitrum Sepolia.{/if}</p>{/if}
+          {/if}
+          {#if signInOptional}
+            <!-- optional, secondary, under the address and the claim button: it stays mounted after a claim (hidden) so the session is kept -->
+            <div class="gidopt" data-testid="gid-optional" hidden={paid}>
+              <GullySignIn clientId={faucetInfo.gullyid_client} issuer={faucetInfo.gullyid_issuer || undefined} required={false} highlight={freshRefused && !gullyToken} onwallet={onGullyWallet} lockedNote={lockedTo ? `the claim pays your ${appName(target.from)} account ${short(lockedTo)}` : 'any address works, brand-new wallets included'} />
+            </div>
           {/if}
           {#if paid}
             <div class="done" data-testid="done">
@@ -997,6 +1023,12 @@
   .twarn-h .ic { width: 18px; height: 18px; color: var(--gn-warn); flex: none; }
   .twarn-s { margin: 0; font-size: 13px; color: var(--text-2); }
   .twarn .mono { font-family: var(--f-mono); }
+  /* sign-in optional: paying another wallet is normal, so the note is neutral (no warn colours) */
+  .twarn.soft { border-color: var(--border); background: var(--surface-2); }
+  .twarn.soft .twarn-h .ic { color: var(--muted-c); }
+  /* optional "Sign in with Gully ID": a secondary block under the address and the claim button */
+  .gidopt { border-top: 1px solid var(--border); padding-top: 14px; margin-top: 4px; }
+  .gidopt[hidden] { display: none; }
   .hint { margin: 0; font-size: 13px; color: var(--muted-c); overflow-wrap: anywhere; }
   .hint.consent a { color: var(--text-2); text-decoration: underline; text-underline-offset: 2px; }
   .hint.consent a:hover { color: var(--text); }

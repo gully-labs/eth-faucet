@@ -47,8 +47,8 @@ var (
 	gullyIDIssuerFlag = flag.String("gullyid.issuer", os.Getenv("GULLY_ID_ISSUER"), "Gully ID issuer origin (default "+server.DefaultGullyIDIssuer+")")
 
 	// drain hardening (2026-10-27)
-	gullyIDRequiredFlag = flag.Bool("gullyid.required", envBool("FAUCET_REQUIRE_GULLY_ID", false), "Claims need a Sign in with Gully session (one claim per Gully ID account per window)")
-	eligibilityFlag     = flag.Bool("faucet.eligibility", envBool("FAUCET_ELIGIBILITY", false), "Refuse fresh recipients: the address must be the user's Gully smart account or have history on one of -faucet.activityrpcs")
+	gullyIDRequiredFlag = flag.Bool("gullyid.required", envBool("FAUCET_REQUIRE_GULLY_ID", false), "Claims need a Sign in with Gully session. Off (the default) with -gullyid.client set = sign-in optional: any address with history is paid without it; a valid session adds brand-new addresses and one claim per Gully ID account per window")
+	eligibilityFlag     = flag.Bool("faucet.eligibility", envBool("FAUCET_ELIGIBILITY", false), "Refuse fresh recipients: the address must have history on one of -faucet.activityrpcs (sign-in optional: a signed-in Gully ID user may pay any address; sign-in required: also their own Gully smart account)")
 	activityRPCsFlag    = flag.String("faucet.activityrpcs", os.Getenv("FAUCET_ACTIVITY_RPCS"), "Comma-separated RPCs for the eligibility check (empty = the faucet RPC + "+defaultArbSepoliaRPC+")")
 	hourCapFlag         = flag.Float64("faucet.hourcap", envFloat("FAUCET_BUDGET_HOUR", 0), "Max ETH paid out per rolling hour (0 = no cap)")
 	dayCapFlag          = flag.Float64("faucet.daycap", envFloat("FAUCET_BUDGET_DAY", 0), "Max ETH paid out per rolling 24 h (0 = no cap)")
@@ -169,7 +169,7 @@ func Execute() {
 			"wallets": len(dt.Wallets), "trust_profile": dt.TrustProfile}).Info("developer tier on")
 	}
 	log.WithFields(log.Fields{
-		"signin_required": prot.GullyIDRequired, "eligibility": prot.Activity != nil, "hour_cap": prot.HourCapEth,
+		"signin_required": prot.GullyIDRequired, "signin_optional": !prot.GullyIDRequired && strings.TrimSpace(*gullyIDClientFlag) != "", "eligibility": prot.Activity != nil, "hour_cap": prot.HourCapEth,
 		"day_cap": prot.DayCapEth, "state_file": prot.StateFile, "denylist": len(deny),
 		"telegram_alerts": os.Getenv("TELEGRAM_BOT_TOKEN") != "" && *tgChatFlag != "",
 	}).Info("faucet protection")
