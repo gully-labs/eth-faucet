@@ -48,8 +48,9 @@ test('nothing opens Gully ID by itself: signIn is only called from the button pr
 
 test('Connect wallet uses the shared dialog and fills the address with accounts[0]', async () => {
   const start = faucet.indexOf('async function connectWallet()');
-  const fn = faucet.slice(start, faucet.indexOf('\n  }\n', start) + 4);
+  const fn = faucet.slice(faucet.indexOf('function loadConnect()'), faucet.indexOf('\n  }\n', start) + 4);
   assert.match(fn, /window\.GullyConnect/);
+  assert.match(fn, /await loadConnect\(\)/);
   assert.match(fn, /gc\.open\(\{ appName: 'Gully Faucet' \}\)/);
   const run = new Function('window', 'short', 'notify', `let input = '', step = 1, fieldError = 'x', connecting = false, walletName = '';
     ${fn}
