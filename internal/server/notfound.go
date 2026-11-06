@@ -4,6 +4,7 @@ import (
 	"io"
 	"net/http"
 	"path"
+	"strings"
 )
 
 // withNotFound serves the static app and answers unknown paths with the branded web/public/404.html (status 404,
@@ -24,6 +25,12 @@ func withNotFound(fsys http.FileSystem) http.Handler {
 				_, _ = io.Copy(w, page)
 				return
 			}
+		}
+		switch {
+		case strings.HasPrefix(p, "/assets/"):
+			w.Header().Set("Cache-Control", "public, max-age=31536000, immutable") // hashed names
+		case p == "/" || p == "/sw.js" || p == "/sw-config.json":
+			w.Header().Set("Cache-Control", "no-cache") // revalidated, so a deploy and the kill switch are seen
 		}
 		files.ServeHTTP(w, r)
 	})

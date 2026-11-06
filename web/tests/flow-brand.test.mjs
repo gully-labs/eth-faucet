@@ -66,8 +66,9 @@ test('Connect wallet uses the shared dialog and fills the address with accounts[
   assert.equal(c.input, '');
 });
 
-test('gc-connect is loaded on the page and is the canonical 1.1.0 copy (Sign in with Gully ID first)', () => {
-  assert.match(read('index.html'), /<script src="\/gc-connect\.js\?v=1\.1\.0" defer><\/script>/);
+test('gc-connect loads when asked for, not on first paint, and is the canonical 1.1.0 copy (Sign in with Gully ID first)', () => {
+  assert.doesNotMatch(read('index.html'), /gc-connect\.js/);
+  assert.match(read('src/Faucet.svelte'), /s\.src = '\/gc-connect\.js\?v=1\.1\.0'/);
   assert.match(read('public/gc-connect.js'), /GC_CONNECT_VERSION = '1\.1\.0'/);
 });
 

@@ -5,9 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && vite build --ssr src/entry-server.js --outDir .ssr && node scripts/prerender.mjs && node load/build-sw.mjs dist --prefix gully-faucet --never /api --pages / && node load/first-load.mjs dist --budget-kb 100",
     "preview": "vite preview",
-    "test": "node scripts/sync-gullychain-night.mjs --check && node --conditions=browser --test tests/*.test.mjs",
+    "test": "node scripts/sync-gullychain-night.mjs --check && node --conditions=browser --test tests/*.test.mjs && node --test load/load.test.mjs",
     "sync:night": "node scripts/sync-gullychain-night.mjs",
     "prettier": "prettier --write --plugin prettier-plugin-svelte 'src/**/*.{css,html,js,svelte}'"
   },
