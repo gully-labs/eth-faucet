@@ -871,7 +871,7 @@
     <div class="fbot">
       <p class="copy2">Testnet only. Tokens have no value. MIT, a fork of chainflag/eth-faucet.</p>
       <span class="fbadges"><a class="gcb" href="https://gullychain.xyz" aria-label="Powered by GullyChain"><img src="/brand/badges/badge-dark.png" width="180" height="48" alt="Powered by GullyChain" loading="lazy" /></a>
-      <a class="glb" href="https://gullylabs.xyz" target="_blank" rel="noopener noreferrer" aria-label="Powered by Gully Labs (opens in a new tab)"><img src="/brand/gully-labs/powered-by-gully-labs-dark.png" srcset="/brand/gully-labs/powered-by-gully-labs-dark.png 1x, /brand/gully-labs/powered-by-gully-labs-dark-2x.png 2x, /brand/gully-labs/powered-by-gully-labs-dark-3x.png 3x" width="127" height="32" alt="Powered by Gully Labs" loading="lazy" /></a></span>
+      <a class="glb" href="https://gullylabs.xyz" target="_blank" rel="noopener noreferrer" aria-label="Powered by Gully Labs (opens in a new tab)"><img src="/brand/gully-labs/gully-labs-powered-by-dark.svg" width="128" height="44" alt="Powered by Gully Labs" loading="lazy" /></a></span>
     </div>
   </div>
 </footer>
@@ -1106,8 +1106,8 @@
   footer .fbot { width: 100%; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; padding-top: 14px; border-top: 1px solid var(--border); }
   footer .fbot .copy2 { width: auto; }
   .glb { display: inline-flex; line-height: 0; flex: none; border-radius: var(--gn-r-sm); }
-  .glb img { height: 28px; width: auto; }
-  @media (max-width: 640px) { .glb img { height: 26px; } }
+  .glb img { height: 38px; width: auto; }
+  @media (max-width: 640px) { .glb img { height: 36px; } }
 
   /* claim result (ETH + token drip) */
   .claim-result { padding: 10px 14px; border: 1px solid color-mix(in srgb, var(--gn-green) 28%, transparent); border-radius: var(--gn-r); background: var(--ok-bg); font-size: 14px; display: grid; gap: 6px; }

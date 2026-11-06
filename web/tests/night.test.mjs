@@ -38,7 +38,7 @@ test('dark pages use only the dark-background logo variants', () => {
   assert.match(s, /src="\/brand\/mascots\/mascot-builder\.png" width="630" height="502"/);
   // kit v4 has no wordmark file: no v3 wordmark, 3D logo or v3 badge anywhere
   assert.doesNotMatch(s, /gullychain-wordmark|gullychain-logo-transparent|gullychain-powered-by|gullychain-mascot/);
-  assert.match(s, /powered-by-gully-labs-dark/);
+  assert.match(s, /gully-labs-powered-by-dark\.svg/);
   assert.match(s, /<gc-switcher [^>]*theme="dark"/);
 });
 

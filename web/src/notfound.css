@@ -11,7 +11,7 @@
 .nf-links a:hover .gn-ic, .nf-links a[aria-current="page"] .gn-ic { color: var(--gn-link); }
 .gn-body .nf-links a:hover { background: var(--gn-surface-2); }
 .nf-glb { margin-top: 24px; }
-.nf-glb img { height: 32px; width: auto; }
+.nf-glb img { height: 44px; width: auto; }
 .nf-legal { margin: 16px 0 0; display: flex; flex-wrap: wrap; gap: 0 16px; font-size: 14px; }
 .gn-body .nf-legal a { display: inline-flex; align-items: center; min-height: 44px; color: var(--gn-text-2); text-decoration: underline; text-underline-offset: 2px; }
 .gn-body .nf-legal a:hover { color: var(--gn-text); }
