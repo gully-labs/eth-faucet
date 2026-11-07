@@ -48,8 +48,9 @@ test('nothing opens Gully ID by itself: signIn is only called from the button pr
 
 test('Connect wallet uses the shared dialog and fills the address with accounts[0]', async () => {
   const start = faucet.indexOf('async function connectWallet()');
-  const fn = faucet.slice(start, faucet.indexOf('\n  }\n', start) + 4);
+  const fn = faucet.slice(faucet.indexOf('function loadConnect()'), faucet.indexOf('\n  }\n', start) + 4);
   assert.match(fn, /window\.GullyConnect/);
+  assert.match(fn, /await loadConnect\(\)/);
   assert.match(fn, /gc\.open\(\{ appName: 'Gully Faucet' \}\)/);
   const run = new Function('window', 'short', 'notify', `let input = '', step = 1, fieldError = 'x', connecting = false, walletName = '';
     ${fn}
@@ -66,8 +67,9 @@ test('Connect wallet uses the shared dialog and fills the address with accounts[
   assert.equal(c.input, '');
 });
 
-test('gc-connect is loaded on the page and is the canonical 1.1.0 copy (Sign in with Gully ID first)', () => {
-  assert.match(read('index.html'), /<script src="\/gc-connect\.js\?v=1\.1\.0" defer><\/script>/);
+test('gc-connect loads when asked for, not on first paint, and is the canonical 1.1.0 copy (Sign in with Gully ID first)', () => {
+  assert.doesNotMatch(read('index.html'), /gc-connect\.js/);
+  assert.match(read('src/Faucet.svelte'), /s\.src = '\/gc-connect\.js\?v=1\.1\.0'/);
   assert.match(read('public/gc-connect.js'), /GC_CONNECT_VERSION = '1\.1\.0'/);
 });
 

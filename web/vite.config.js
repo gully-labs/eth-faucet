@@ -17,7 +17,7 @@ const sitemap = () => ({
 })
 
 // 404.html is a second entry (branded 404, served by internal/server/notfound.go)
-export default defineConfig({
-  plugins: [svelte(), sitemap()],
-  build: { rollupOptions: { input: { main: 'index.html', notfound: '404.html' } } },
-})
+export default defineConfig(({ isSsrBuild }) => ({
+  plugins: isSsrBuild ? [svelte()] : [svelte(), sitemap()],
+  build: isSsrBuild ? { copyPublicDir: false } : { rollupOptions: { input: { main: 'index.html', notfound: '404.html' } } },
+}))

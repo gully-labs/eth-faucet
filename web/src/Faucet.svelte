@@ -361,8 +361,19 @@
   //      It only fills the address field; in required mode the claim still needs the Gully ID sign-in above.
   let connecting = false;
   let walletName = '';
+  // Wallet code is not part of the first paint: the dialog loads when someone asks to connect.
+  function loadConnect() {
+    if (window.GullyConnect) return Promise.resolve(window.GullyConnect);
+    return new Promise((done) => {
+      const s = document.createElement('script');
+      s.src = '/gc-connect.js?v=1.1.0';
+      s.onload = () => done(window.GullyConnect || null);
+      s.onerror = () => done(null);
+      document.head.append(s);
+    });
+  }
   async function connectWallet() {
-    const gc = typeof window !== 'undefined' ? window.GullyConnect : null;
+    const gc = typeof window !== 'undefined' ? await loadConnect() : null;
     if (!gc || typeof gc.open !== 'function') {
       notify({ title: 'Wallet picker unavailable', message: 'It did not load. Paste your address instead, or reload the page.', type: 'is-warning', icon: 'wallet' });
       return;
@@ -433,6 +444,24 @@
     }
   }
 
+  // Last-known payout from the last visit, shown at once. Display only: the sign-in mode, the captcha and every claim
+  // decision wait for the live /api/info.
+  const LAST_KNOWN = 'gully-faucet-last-known-v1';
+  function saveLastKnown(i) {
+    try {
+      localStorage.setItem(LAST_KNOWN, JSON.stringify({ payout: i.payout, symbol: i.symbol }));
+    } catch {
+      /* storage blocked: no last-known value next time */
+    }
+  }
+  function restoreLastKnown() {
+    try {
+      const c = JSON.parse(localStorage.getItem(LAST_KNOWN) || 'null');
+      if (c?.payout && !faucetInfo.payout) faucetInfo = { ...faucetInfo, payout: c.payout, symbol: c.symbol };
+    } catch {
+      /* no cache */
+    }
+  }
   async function loadInfo() {
     infoError = false;
     try {
@@ -441,6 +470,7 @@
         throw new Error('Failed to fetch faucet info');
       }
       faucetInfo = await res.json();
+      saveLastKnown(faucetInfo);
       mounted = true;
       loadDrips();
       pollBlock();
@@ -450,6 +480,7 @@
     }
   }
   onMount(async () => {
+    restoreLastKnown();
     await loadInfo();
     pollBlock();
     blockTimer = setInterval(pollBlock, 6000);
