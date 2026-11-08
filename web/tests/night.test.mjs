@@ -75,9 +75,9 @@ test('header nav reaches dev, docs, bridge, explorer, ecosystem and status, each
 
 test('gc-switcher 1.8.4 (kit v4 dark theme, Gully Chain products only), loaded with its version on both pages', () => {
   const js = readFileSync(join(WEB, 'public/gc-switcher.js'), 'utf8');
-  assert.match(js, /GC_SWITCHER_VERSION = '1\.8\.3'/);
+  assert.match(js, /GC_SWITCHER_VERSION = '1.8.4'/);
   assert.doesNotMatch(js.slice(js.indexOf('var PRODUCTS')), /href: 'https:\/\/[a-z.]*kre8\.fun/, 'no kre8 entries in the grid (since 1.8.2)');
-  for (const f of ['index.html', '404.html']) assert.match(readFileSync(join(WEB, f), 'utf8'), /gc-switcher\.js\?v=1\.8\.3/, f);
+  for (const f of ['index.html', '404.html']) assert.match(readFileSync(join(WEB, f), 'utf8'), /gc-switcher\.js\?v=1.8.4/, f);
 });
 
 // GN 2.0 / brand kit v4: no kit v3 colour literal or Exo 2 left in the faucet's own sources (src/night/ is vendored).
