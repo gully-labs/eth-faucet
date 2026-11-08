@@ -99,6 +99,6 @@ test('404 page: noindex, kit dark logo, switcher, links to every key surface, GN
   assert.match(h, /src="\/brand\/logo\/gc-icon\.svg" width="32" height="32"/);
   assert.match(h, /name="theme-color" content="#0A0F0E"/);
   assert.match(h, /<gc-switcher [^>]*theme="dark"/);
-  for (const u of ['dev.gullychain.xyz', 'docs.gullychain.xyz', 'testnet-bridge.gullychain.xyz', 'testnet-explorer.gullychain.xyz', 'gullychain.xyz/ecosystem/', 'status.gullylabs.xyz']) assert.ok(h.includes(`https://${u}`), u);
+  for (const u of ['dev.gullychain.xyz', 'docs.gullychain.xyz', 'testnet-bridge.gullychain.xyz', 'testnet.gullyscan.xyz', 'gullychain.xyz/ecosystem/', 'status.gullylabs.xyz']) assert.ok(h.includes(`https://${u}`), u);
   assert.doesNotMatch(readFileSync(join(WEB, 'src/notfound.css'), 'utf8'), /#[0-9a-f]{3,6}\b|rgba?\(/i);
 });
