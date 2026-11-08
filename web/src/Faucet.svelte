@@ -12,7 +12,7 @@
     hex: '0x768d6',
     name: 'GullyChain Testnet',
     rpc: 'https://testnet-rpc.gullychain.xyz',
-    explorer: 'https://testnet-explorer.gullychain.xyz',
+    explorer: 'https://testnet.gullyscan.xyz',
   };
   const LINKS = [
     // owner 2026-10-31: the one Gully Chain header action (gully-ops sites/_shared/gc-chrome.json), never the consumer app
