@@ -54,17 +54,17 @@ type TxBuild struct {
 // NewTxBuilder connects to provider, a single RPC URL or a comma-separated ordered list of http(s) URLs (empty =
 // DefaultProviders). With http(s) URLs every call goes through a FallbackTransport: first healthy URL wins, the next
 // one is tried after a network error, timeout, 5xx/429 or rate-limit error.
-func NewTxBuilder(provider string, privateKey *ecdsa.PrivateKey, chainID *big.Int) (TxBuilder, error) {
+// The RPC's chain id is always read and must be on allowed (VerifyChain): the faucet refuses to start on any other
+// chain, and on every mainnet, so pointing it at a mainnet RPC can never pay out real ETH.
+func NewTxBuilder(provider string, privateKey *ecdsa.PrivateKey, chainID *big.Int, allowed []int64) (TxBuilder, error) {
 	client, err := dialProviders(ParseProviders(provider))
 	if err != nil {
 		return nil, err
 	}
 
-	if chainID == nil {
-		chainID, err = client.ChainID(context.Background())
-		if err != nil {
-			return nil, err
-		}
+	chainID, err = VerifyChain(context.Background(), client, chainID, allowed)
+	if err != nil {
+		return nil, err
 	}
 
 	supportsEIP1559, err := checkEIP1559Support(client)
