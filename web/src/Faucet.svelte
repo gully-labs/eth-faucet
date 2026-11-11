@@ -641,7 +641,7 @@
       if (res.ok) {
         const message = data?.msg || 'Transaction successful';
         toast({ message, type: 'is-success', amount: data?.amount, tier: data?.tier });
-        // Gully Chain analytics (self-hosted Umami, cookieless): a coarse counter, no address
+        // Gully analytics (self-hosted Umami, cookieless): a coarse counter, no address
         try { window.umami?.track('faucet-claim', data?.tier ? { tier: String(data.tier) } : undefined); } catch {}
         const ethTx = (/Txhash:\s*(0x[0-9a-fA-F]{64})/.exec(message) || [])[1] || null;
         claimResult = { ethTx, token: data?.token || null };
