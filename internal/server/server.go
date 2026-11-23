@@ -93,7 +93,7 @@ func (s *Server) handleClaim() http.HandlerFunc {
 				"error":   err,
 				"address": address,
 			}).Error("Failed to send transaction")
-			renderJSON(w, claimResponse{Message: fmt.Sprintf("Transaction failed: %v", err)}, http.StatusInternalServerError)
+			renderJSON(w, claimResponse{Message: "The transfer could not be sent right now. Try again in a minute."}, http.StatusInternalServerError)
 			return
 		}
 

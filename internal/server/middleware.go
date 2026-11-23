@@ -51,6 +51,9 @@ func (l *Limiter) ServeHTTP(w http.ResponseWriter, r *http.Request, next http.Ha
 
 	r = r.WithContext(context.WithValue(r.Context(), addressContextKey, address))
 
+	// one key per address whatever its letter case (checksummed and lowercase forms are the same account)
+	address = strings.ToLower(address)
+
 	if l.ttl <= 0 {
 		next.ServeHTTP(w, r)
 		return
