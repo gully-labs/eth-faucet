@@ -26,7 +26,7 @@ func TestTxBuilder(t *testing.T) {
 	defer simClient.Close()
 	var s *backends.SimulatedBackend
 	patches := gomonkey.ApplyMethod(reflect.TypeOf(s), "SuggestGasPrice", func(_ *backends.SimulatedBackend, _ context.Context) (*big.Int, error) {
-		return big.NewInt(875000000), nil
+		return big.NewInt(2000000000), nil // above the simulated chain base fee (1 gwei)
 	})
 	defer patches.Reset()
 
