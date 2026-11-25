@@ -1,0 +1,1 @@
+{ "repo": "eth-faucet", "product": "gully-chain", "checks": [ { "type": "kit", "kit": "gc-switcher", "dir": "web/public" } ] }
