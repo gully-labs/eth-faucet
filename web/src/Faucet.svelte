@@ -878,10 +878,11 @@
       <div class="band-copy">
         <p class="lab cy"><span class="ic">{@html icon('arrows')}</span>Need more than {faucetInfo.payout} {faucetInfo.symbol}?</p>
         <h2>Bridge from Arbitrum Sepolia</h2>
-        <p class="muted">Deposit Arbitrum Sepolia ETH through the testnet bridge.</p>
+        <p class="muted">Deposit Arbitrum Sepolia ETH through the testnet bridge. Need more test USDC.e? Get testnet USDC on Arbitrum Sepolia and bridge it in on the bridge's USDC tab.</p>
         {#if faucetInfo.dev_tier}<p class="muted" data-testid="dev-tier">Building on GullyChain? Verified developers get <b>{faucetInfo.dev_tier.payout} {faucetInfo.symbol}</b> every {faucetInfo.dev_tier.window_hours} h with the same Gully ID sign-in. Email <a href="mailto:team@gullylabs.xyz?subject=Faucet%20developer%20tier">team@gullylabs.xyz</a> with your Gully ID and what you are building.</p>{/if}
         <div class="ctas">
           <a class="btn ter sm" href={LINKS[1].href} target="_blank" rel="noopener noreferrer"><span class="ic">{@html icon('arrows')}</span>Bridge<span class="ic ar">{@html icon('arrow')}</span></a>
+          <a class="btn ter sm" href="https://docs.gullychain.xyz/bridging/#get-testnet-usdce" target="_blank" rel="noopener noreferrer" data-testid="get-usdc"><span class="ic">{@html icon('wallet')}</span>Get testnet USDC.e<span class="ic ar">{@html icon('arrow')}</span></a>
           <a class="btn ter sm" href={LINKS[0].href} target="_blank" rel="noopener noreferrer"><span class="ic">{@html icon('rocket')}</span>Start building<span class="ic ar">{@html icon('arrow')}</span></a>
         </div>
       </div>
